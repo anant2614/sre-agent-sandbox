@@ -1,0 +1,48 @@
+{
+  "milestone": "misc-fixes-1",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd /Users/anant/ai/sre-agent-sandbox && uv run pytest tests/ -v --tb=short -x",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "cd /Users/anant/ai/sre-agent-sandbox && uv run python -m py_compile sre_agent_sandbox/models.py && uv run python -m py_compile sre_agent_sandbox/chaos_engine.py && uv run python -m py_compile sre_agent_sandbox/simulated_system.py && uv run python -m py_compile sre_agent_sandbox/reward.py && uv run python -m py_compile sre_agent_sandbox/server/environment.py && uv run python -m py_compile sre_agent_sandbox/server/app.py && uv run python -m py_compile sre_agent_sandbox/renderer.py && uv run python -m py_compile sre_agent_sandbox/demo/run_demo.py",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "cd /Users/anant/ai/sre-agent-sandbox && uv run ruff check .",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "failedFeatures": [
+      "fix-rollback-overclear-faults"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "fix-rollback-overclear-faults",
+      "severity": "blocking",
+      "description": "RestartService does not clear bad_config from SimulatedSystem._active_faults, leaving stale active_incidents after restart (sre_agent_sandbox/simulated_system.py:116)."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "For env-worker runs, explicitly enforce and verify startup reads of `.factory/research/openenv-api.md` and `.factory/library/architecture.md` in transcript skeleton checks.",
+      "evidence": "Review of feature fix-rollback-overclear-faults found session 38fed58e-e883-4f33-b080-02949cb697a2 did not show these required reads in worker-transcripts.jsonl.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}
