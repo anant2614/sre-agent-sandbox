@@ -1,0 +1,7 @@
+name: sre-agent-sandbox
+version: "0.1.0"
+description: >
+  OpenEnv RL environment simulating a distributed 3-tier microservices system
+  under stress. An AI agent acts as an SRE, diagnosing and remediating
+  infrastructure failures.
+entry_point: sre_agent_sandbox.server.environment:SREEnvironment

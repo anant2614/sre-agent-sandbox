@@ -1,0 +1,38 @@
+[project]
+name = "sre-agent-sandbox"
+version = "0.1.0"
+description = "OpenEnv RL environment simulating a distributed 3-tier microservices system under stress for SRE agent training"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core>=0.2.2",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+sre-agent-demo = "sre_agent_sandbox.demo.run_demo:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "httpx>=0.24.0",
+    "websockets>=12.0",
+    "ruff>=0.1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
