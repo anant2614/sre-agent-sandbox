@@ -1,0 +1,15 @@
+commands:
+  install: cd /Users/anant/ai/sre-agent-sandbox && uv sync
+  test: cd /Users/anant/ai/sre-agent-sandbox && uv run pytest tests/ -v --tb=short -x
+  typecheck: cd /Users/anant/ai/sre-agent-sandbox && uv run python -m py_compile sre_agent_sandbox/models.py && uv run python -m py_compile sre_agent_sandbox/chaos_engine.py && uv run python -m py_compile sre_agent_sandbox/simulated_system.py && uv run python -m py_compile sre_agent_sandbox/reward.py && uv run python -m py_compile sre_agent_sandbox/server/environment.py
+  lint: cd /Users/anant/ai/sre-agent-sandbox && uv run ruff check .
+  docker-build: cd /Users/anant/ai/sre-agent-sandbox && docker build -t sre-agent-sandbox .
+  demo: cd /Users/anant/ai/sre-agent-sandbox && uv run python -m demo.run_demo
+
+services:
+  openenv-server:
+    start: cd /Users/anant/ai/sre-agent-sandbox && PORT=8000 uv run uvicorn sre_agent_sandbox.server.app:app --host 0.0.0.0 --port 8000 &
+    stop: lsof -ti :8000 | xargs kill 2>/dev/null || true
+    healthcheck: curl -sf http://localhost:8000/health
+    port: 8000
+    depends_on: []
