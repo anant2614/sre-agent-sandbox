@@ -1,7 +1,7 @@
 {
   "milestone": "core-environment",
-  "round": 1,
-  "status": "fail",
+  "round": 2,
+  "status": "pass",
   "validatorsRun": {
     "test": {
       "passed": true,
@@ -20,63 +20,28 @@
     }
   },
   "reviewsSummary": {
-    "total": 6,
-    "passed": 3,
-    "failed": 3,
-    "failedFeatures": [
-      "pydantic-models",
-      "simulated-system",
-      "sre-environment"
-    ]
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "failedFeatures": []
   },
-  "blockingIssues": [
+  "blockingIssues": [],
+  "nonBlockingIssues": [
     {
-      "featureId": "pydantic-models",
-      "severity": "blocking",
-      "description": "SREAction accepts coercible float values such as action_type=1.0 instead of strictly rejecting non-integer inputs."
-    },
-    {
-      "featureId": "pydantic-models",
-      "severity": "blocking",
-      "description": "SREObservation does not enforce required service and metric keys (api/order/db and cpu/memory/latency/request_count), allowing malformed shapes."
-    },
-    {
-      "featureId": "simulated-system",
-      "severity": "blocking",
-      "description": "SimulatedSystem constructor leaves service state uninitialized, so querying a fresh instance can error before reset() and violates baseline-initialized expectation."
-    },
-    {
-      "featureId": "sre-environment",
-      "severity": "blocking",
-      "description": "active_incidents can remain stale after rollback remediation because bad_config faults remain in chaos fault tracking after service recovery."
+      "featureId": "fix-scrutiny-blocking-issues",
+      "severity": "non_blocking",
+      "description": "Rollback remediation currently clears all chaos faults on the target service, which may over-clear same-service stacked non-bad_config faults."
     }
   ],
   "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
       "target": ".factory/skills/env-worker/SKILL.md",
-      "suggestion": "Add an explicit checklist for strict model validation that includes coercion-rejection tests (e.g., 1.0 for integer fields) and nested key-shape enforcement for dict payloads.",
-      "evidence": "Review of pydantic-models found strict-validation gaps despite broad tests; current skill guidance is generic and did not require these specific assertions.",
+      "suggestion": "Clarify strict integer validation guidance to include `field_validator(mode='before')` as an acceptable pattern when `StrictInt` is incompatible with inherited OpenEnv model behavior.",
+      "evidence": "Fix feature successfully used a before-validator in models.py to reject float/bool coercion for action_type while preserving model compatibility.",
       "isSystemic": true
-    },
-    {
-      "target": ".factory/skills/env-worker/SKILL.md",
-      "suggestion": "Require lifecycle assertions for incident tracking in environment tests: faults must appear when active and be cleared after successful remediation.",
-      "evidence": "Review of sre-environment found recovered service health while active_incidents still reported stale bad_config faults.",
-      "isSystemic": true
-    },
-    {
-      "target": ".factory/skills/env-worker/SKILL.md",
-      "suggestion": "Document an explicit exception path for scaffolding/config-only features where red-green TDD is replaced with structure/manifest/command validation.",
-      "evidence": "Review of project-scaffolding passed but noted procedural friction because no behavior-level unit tests existed yet.",
-      "isSystemic": false
     }
   ],
-  "rejectedObservations": [
-    {
-      "observation": "Feature-level expected behavior around constructor initialization is not encoded strongly enough in assertions.",
-      "reason": "ambiguous; this is a feature-specific test design gap and not a clear shared-state update target."
-    }
-  ],
-  "previousRound": null
+  "rejectedObservations": [],
+  "previousRound": ".factory/validation/core-environment/scrutiny/synthesis.round1.json"
 }
