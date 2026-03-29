@@ -1,0 +1,15 @@
+{
+  "featureId": "fix-heuristic-uses-alerts",
+  "reviewedAt": "2026-03-29T12:51:47Z",
+  "commitId": "e47de12",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Fix commit e47de12 resolves the prior blocking issue by making HeuristicAgent.act() inspect obs.active_alerts first and map alert text to the required remediation actions before incident fallback. Added tests cover bad_config rollback, memory/high_memory restart, timeout/latency restart with cascade root-cause targeting, high_cpu scale-up, alert priority, status-only fallthrough, and integration scenarios. No regressions were identified in the reviewed fix scope.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": ".factory/validation/server-docker-demo/scrutiny/reviews/ascii-renderer-and-demo.json",
+  "summary": "Reviewed prior failure context plus fix feature evidence (handoff, transcript skeleton, and commit diff). The fix fully addresses the original blocking requirement gap and introduces no new blocking or non-blocking issues in the reviewed changes."
+}

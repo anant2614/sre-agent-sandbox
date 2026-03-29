@@ -1,7 +1,7 @@
 {
   "milestone": "server-docker-demo",
-  "round": 1,
-  "status": "fail",
+  "round": 2,
+  "status": "pass",
   "validatorsRun": {
     "test": {
       "passed": true,
@@ -20,41 +20,27 @@
     }
   },
   "reviewsSummary": {
-    "total": 3,
-    "passed": 2,
-    "failed": 1,
-    "failedFeatures": [
-      "ascii-renderer-and-demo"
-    ]
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "failedFeatures": []
   },
-  "blockingIssues": [
-    {
-      "featureId": "ascii-renderer-and-demo",
-      "severity": "blocking",
-      "description": "HeuristicAgent.act only inspects state.active_incidents and does not inspect obs.active_alerts before choosing actions, so it can return NoOp when alerts indicate bad_config without active_incidents. This does not satisfy the feature requirement to use active_incidents/alerts from observation to determine fault type."
-    }
-  ],
+  "blockingIssues": [],
   "appliedUpdates": [],
-  "suggestedGuidanceUpdates": [
+  "suggestedGuidanceUpdates": [],
+  "rejectedObservations": [
     {
-      "target": "skills/server-worker",
-      "suggestion": "Add concrete guidance for meeting the Docker <500MB target with openenv-core transitive dependencies (what can be safely trimmed, what must remain) to reduce trial-and-error rebuild cycles.",
-      "evidence": "dockerfile review noted repeated rebuild/debug iterations and explicit worker skill feedback requesting this guidance.",
-      "isSystemic": false
+      "observation": "server-worker skill lacks Docker image-size optimization guidance for openenv-core transitive dependencies",
+      "reason": "already-documented in round1 synthesis suggestedGuidanceUpdates"
     },
     {
-      "target": "AGENTS.md",
-      "suggestion": "Align documented demo entrypoint with operational command source of truth: either document top-level `demo/run_demo.py` compatibility explicitly or update structure docs to match `python -m demo.run_demo` in services.yaml.",
-      "evidence": "ascii-renderer-and-demo review identified mismatch between AGENTS.md project structure and .factory/services.yaml demo command.",
-      "isSystemic": true
+      "observation": "AGENTS.md demo module location disagrees with services.yaml demo command path",
+      "reason": "already-documented in round1 synthesis suggestedGuidanceUpdates"
     },
     {
-      "target": "skills/server-worker",
-      "suggestion": "Explicitly require compatibility with `uv run python -m demo.run_demo` (services.yaml command) when implementing demo functionality, even if code primarily lives under package modules.",
-      "evidence": "ascii-renderer-and-demo worker added a wrapper for command compatibility and left skill feedback requesting path-compatibility guidance.",
-      "isSystemic": true
+      "observation": "server-worker skill does not explicitly require compatibility with python -m demo.run_demo",
+      "reason": "already-documented in round1 synthesis suggestedGuidanceUpdates"
     }
   ],
-  "rejectedObservations": [],
-  "previousRound": null
+  "previousRound": ".factory/validation/server-docker-demo/scrutiny/synthesis.round1.json"
 }
