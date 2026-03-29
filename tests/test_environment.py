@@ -731,6 +731,92 @@ class TestRollbackOnlyClearsBadConfig:
 
 
 # ===================================================================
+# 13d. RestartService clears _active_faults and active_incidents
+# ===================================================================
+
+class TestRestartClearsActiveFaults:
+    """RestartService should clear both chaos engine faults AND system._active_faults
+    for the target service, so that active_incidents has no stale entries."""
+
+    def test_restart_clears_bad_config_from_active_faults(self) -> None:
+        """Inject bad_config on a service, restart it -> system._active_faults
+        should not contain the service anymore."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+        assert env._system._active_faults.get("db") == "bad_config"
+
+        env.step(_restart("db"))
+
+        assert "db" not in env._system._active_faults, (
+            f"RestartService should clear db from _active_faults, "
+            f"got: {env._system._active_faults}"
+        )
+
+    def test_restart_active_incidents_empty_after_bad_config(self) -> None:
+        """Inject bad_config on a service, restart it -> active_incidents
+        should be empty (no stale entries)."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "bad_config", "order")
+
+        # Verify incident appears before restart
+        state = env.state
+        assert len(state.active_incidents) > 0
+        assert any("bad_config" in inc for inc in state.active_incidents)
+
+        obs = env.step(_restart("order"))
+
+        # After restart, service should be healthy and no stale incidents
+        assert obs.health_status["order"] is True
+        state = env.state
+        assert state.active_incidents == [], (
+            f"Expected empty active_incidents after restart, got {state.active_incidents}"
+        )
+
+    def test_restart_clears_active_faults_and_chaos_faults(self) -> None:
+        """Full lifecycle: inject bad_config via chaos engine, restart,
+        verify both system._active_faults and chaos engine faults cleared."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "bad_config", "api")
+
+        # Both tracking systems should have the fault
+        assert env._system._active_faults.get("api") == "bad_config"
+        assert len(env._chaos.get_active_faults()) == 1
+
+        obs = env.step(_restart("api"))
+
+        # Both should be cleared
+        assert "api" not in env._system._active_faults
+        assert env._chaos.get_active_faults() == []
+        assert obs.health_status["api"] is True
+        assert env.state.active_incidents == []
+
+    def test_restart_clears_stacked_faults_from_active_faults(self) -> None:
+        """Inject memory_leak + bad_config, restart -> _active_faults cleared,
+        chaos engine faults cleared, active_incidents empty."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "memory_leak", "db")
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        assert env._system._active_faults.get("db") == "bad_config"
+        assert len(env._chaos.get_active_faults()) == 2
+
+        obs = env.step(_restart("db"))
+
+        assert "db" not in env._system._active_faults
+        assert env._chaos.get_active_faults() == []
+        assert obs.health_status["db"] is True
+        assert env.state.active_incidents == []
+
+
+# ===================================================================
 # 14. Mismatched remediation does not resolve fault
 # ===================================================================
 

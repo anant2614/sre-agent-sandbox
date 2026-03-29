@@ -123,6 +123,11 @@ class SimulatedSystem:
         svc["is_healthy"] = True
         svc["is_down"] = False
         # instance_count is preserved (restart doesn't change scaling)
+
+        # Clear any fault marker from system-level tracking so that
+        # active_incidents does not contain stale entries after restart.
+        self._active_faults.pop(target, None)
+
         self._add_log(f"RestartService applied to {target}: metrics reset to baseline")
 
     def _action_rollback(self, target: str) -> None:
