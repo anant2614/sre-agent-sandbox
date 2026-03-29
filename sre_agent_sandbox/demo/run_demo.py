@@ -55,30 +55,93 @@ class RandomAgent:
 class HeuristicAgent:
     """Agent that uses a simple heuristic policy.
 
-    Decision logic (evaluated in priority order):
-      1. If any active incident contains 'bad_config' → Rollback (type=2) on
-         the affected service.
-      2. If any active incident contains another fault type → RestartService
-         (type=1) on the affected service.
-      3. If any service has CPU > 80% and no incidents → ScaleUp (type=3) on
-         the highest-CPU service.
-      4. Otherwise → NoOp (type=0).
+    Decision logic (evaluated in priority order using *obs.active_alerts*
+    and *state.active_incidents*):
+
+      1. If any alert/incident contains 'bad_config' → Rollback (type=2)
+         on the affected service.
+      2. If any alert contains 'memory_leak' or 'high_memory' →
+         RestartService (type=1) on the affected service.
+      3. If any alert contains 'timeout' or 'latency' → RestartService
+         (type=1) on the affected dependency (extracted from alert text).
+      4. If any alert/incident contains another fault type →
+         RestartService (type=1) on the affected service.
+      5. If any service has CPU > 80% and no alerts/incidents → ScaleUp
+         (type=3) on the highest-CPU service.
+      6. Otherwise → NoOp (type=0).
     """
 
     def act(self, obs: SREObservation, state: SREState) -> SREAction:
-        """Select an action based on the heuristic policy."""
-        # Priority 1 & 2: Check active incidents from state
+        """Select an action based on the heuristic policy.
+
+        Inspects ``obs.active_alerts`` first for fault-type detection,
+        then falls back to ``state.active_incidents``.
+        """
+        # Primary: use obs.active_alerts for fault-type decisions
+        alerts = obs.active_alerts
+        if alerts:
+            result = self._handle_alerts(alerts)
+            if result is not None:
+                return result
+
+        # Fallback: also check state.active_incidents (may contain info
+        # not yet surfaced as alerts)
         incidents = state.active_incidents
         if incidents:
             return self._handle_incidents(incidents)
 
-        # Priority 3: Check for overloaded services (high CPU)
+        # Check for overloaded services (high CPU, no faults)
         overloaded = self._find_overloaded_service(obs)
         if overloaded is not None:
             return SREAction(action_type=3, target_service=overloaded)
 
-        # Priority 4: All healthy, do nothing
+        # All healthy, do nothing
         return SREAction(action_type=0, target_service="api")
+
+    def _handle_alerts(self, alerts: List[str]) -> Optional[SREAction]:
+        """Parse obs.active_alerts and select the best remediation action.
+
+        Returns ``None`` if no actionable alert is found (e.g. only
+        status alerts like "api is DOWN" without an identifiable fault).
+        """
+        # Priority 1: bad_config → Rollback
+        for alert in alerts:
+            lower = alert.lower()
+            if "bad_config" in lower:
+                target = self._extract_target(alert)
+                return SREAction(action_type=2, target_service=target)
+
+        # Priority 2: memory_leak / high_memory → RestartService
+        for alert in alerts:
+            lower = alert.lower()
+            if "memory_leak" in lower or "high_memory" in lower:
+                target = self._extract_target(alert)
+                return SREAction(action_type=1, target_service=target)
+
+        # Priority 3: timeout / latency alerts → RestartService on
+        # the affected dependency
+        for alert in alerts:
+            lower = alert.lower()
+            if "timeout" in lower or "latency" in lower:
+                target = self._extract_target(alert)
+                return SREAction(action_type=1, target_service=target)
+
+        # Priority 4: high CPU alerts → ScaleUp
+        for alert in alerts:
+            lower = alert.lower()
+            if "high_cpu" in lower or "high cpu" in lower:
+                target = self._extract_target(alert)
+                return SREAction(action_type=3, target_service=target)
+
+        # Priority 5: any other fault alert → RestartService
+        for alert in alerts:
+            lower = alert.lower()
+            if "fault" in lower or "latent_dependency" in lower:
+                target = self._extract_target(alert)
+                return SREAction(action_type=1, target_service=target)
+
+        # Status-only alerts (e.g. "api is DOWN") — no specific action
+        return None
 
     def _handle_incidents(self, incidents: List[str]) -> SREAction:
         """Select an action to address the most critical incident."""
@@ -97,16 +160,30 @@ class HeuristicAgent:
         return SREAction(action_type=0, target_service="api")
 
     @staticmethod
-    def _extract_target(incident: str) -> str:
-        """Extract target service name from an incident string.
+    def _extract_target(text: str) -> str:
+        """Extract target service name from an alert or incident string.
 
-        Incident format examples:
+        Handles formats such as:
+          - 'Active fault on db: bad_config'
           - 'bad_config on db'
+          - 'Timeout: order latency exceeded threshold'
+          - 'Timeout: api latency exceeded threshold (cascade from db)'
           - 'memory_leak on order'
-          - 'latent_dependency on api'
+          - 'db is DOWN'
+
+        For cascade timeout alerts, extracts the cascade *source* service
+        (the root cause) when present.
         """
+        lower = text.lower()
+
+        # For cascade alerts, prefer the cascade source (root cause)
+        if "cascade from" in lower:
+            for svc in SERVICE_LIST:
+                if f"cascade from {svc}" in lower:
+                    return svc
+
         for svc in SERVICE_LIST:
-            if svc in incident:
+            if svc in text:
                 return svc
         # Fallback to first service
         return "api"
