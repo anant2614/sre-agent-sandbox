@@ -120,6 +120,18 @@ class ChaosEngine:
             for f in self._active_faults
         ]
 
+    def remove_faults_for_service(self, target_service: str) -> None:
+        """Remove all active faults targeting *target_service*.
+
+        Used when a remediation action successfully resolves a fault,
+        so that the chaos engine's fault tracking stays in sync with
+        the simulated system state.
+        """
+        self._active_faults = [
+            f for f in self._active_faults
+            if f["target_service"] != target_service
+        ]
+
     def clear_all(self) -> None:
         """Remove all active faults."""
         self._active_faults.clear()

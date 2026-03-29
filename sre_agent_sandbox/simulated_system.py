@@ -58,6 +58,10 @@ class SimulatedSystem:
         self._dependencies: Dict[str, List[str]] = dict(DEPENDENCIES)
         self._rng: Optional[random.Random] = None
 
+        # Initialize services to healthy baseline so query methods work
+        # immediately without requiring an explicit reset() call.
+        self.reset()
+
     # ------------------------------------------------------------------
     # Reset
     # ------------------------------------------------------------------

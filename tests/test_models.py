@@ -93,6 +93,37 @@ class TestSREActionInvalidActionType:
             SREAction(action_type=None, target_service="api")  # type: ignore[arg-type]
 
 
+class TestSREActionStrictIntValidation:
+    """Test that action_type rejects coercible float values (strict int enforcement)."""
+
+    def test_action_type_float_1_0_rejected(self) -> None:
+        """1.0 is a float that equals int 1, but must be rejected by StrictInt."""
+        with pytest.raises(ValidationError):
+            SREAction(action_type=1.0, target_service="api")  # type: ignore[arg-type]
+
+    def test_action_type_float_0_0_rejected(self) -> None:
+        """0.0 is a float that equals int 0, but must be rejected."""
+        with pytest.raises(ValidationError):
+            SREAction(action_type=0.0, target_service="api")  # type: ignore[arg-type]
+
+    def test_action_type_float_2_0_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SREAction(action_type=2.0, target_service="api")  # type: ignore[arg-type]
+
+    def test_action_type_float_3_0_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SREAction(action_type=3.0, target_service="db")  # type: ignore[arg-type]
+
+    def test_action_type_float_4_0_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SREAction(action_type=4.0, target_service="order")  # type: ignore[arg-type]
+
+    def test_action_type_true_bool_rejected(self) -> None:
+        """bool is a subclass of int in Python, but StrictInt should reject True."""
+        with pytest.raises(ValidationError):
+            SREAction(action_type=True, target_service="api")  # type: ignore[arg-type]
+
+
 class TestSREActionInvalidTargetService:
     """Test that invalid target_service values are rejected."""
 
@@ -270,6 +301,133 @@ class TestSREObservationValidConstruction:
             active_alerts=["High CPU on api", "Memory leak on db"],
         )
         assert len(obs.active_alerts) == 2
+
+
+class TestSREObservationMetricsValidation:
+    """Test that metrics dict shape is enforced: exactly keys {api, order, db},
+    each with exactly {cpu, memory, latency, request_count}."""
+
+    def test_metrics_missing_service_key_rejected(self) -> None:
+        """Metrics with only 2 of 3 service keys is rejected."""
+        bad_metrics = {
+            "api": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+            "order": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+            # "db" is missing
+        }
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=bad_metrics,
+                log_buffer=[],
+                health_status=SAMPLE_HEALTH_STATUS,
+                active_alerts=[],
+            )
+
+    def test_metrics_extra_service_key_rejected(self) -> None:
+        """Metrics with an extra service key is rejected."""
+        bad_metrics = dict(SAMPLE_METRICS)
+        bad_metrics["cache"] = {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0}
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=bad_metrics,
+                log_buffer=[],
+                health_status=SAMPLE_HEALTH_STATUS,
+                active_alerts=[],
+            )
+
+    def test_metrics_missing_metric_subkey_rejected(self) -> None:
+        """Metrics with a missing metric sub-key (e.g. no 'cpu') is rejected."""
+        bad_metrics = {
+            "api": {"memory": 20.0, "latency": 30.0, "request_count": 100.0},  # missing cpu
+            "order": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+            "db": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+        }
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=bad_metrics,
+                log_buffer=[],
+                health_status=SAMPLE_HEALTH_STATUS,
+                active_alerts=[],
+            )
+
+    def test_metrics_extra_metric_subkey_rejected(self) -> None:
+        """Metrics with an extra metric sub-key is rejected."""
+        bad_metrics = {
+            "api": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0, "disk_io": 5.0},
+            "order": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+            "db": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+        }
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=bad_metrics,
+                log_buffer=[],
+                health_status=SAMPLE_HEALTH_STATUS,
+                active_alerts=[],
+            )
+
+    def test_metrics_empty_dict_rejected(self) -> None:
+        """Empty metrics dict is rejected."""
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics={},
+                log_buffer=[],
+                health_status=SAMPLE_HEALTH_STATUS,
+                active_alerts=[],
+            )
+
+    def test_metrics_wrong_service_names_rejected(self) -> None:
+        """Metrics with wrong service names is rejected."""
+        bad_metrics = {
+            "frontend": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+            "backend": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+            "database": {"cpu": 10.0, "memory": 20.0, "latency": 30.0, "request_count": 100.0},
+        }
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=bad_metrics,
+                log_buffer=[],
+                health_status=SAMPLE_HEALTH_STATUS,
+                active_alerts=[],
+            )
+
+
+class TestSREObservationHealthStatusValidation:
+    """Test that health_status dict shape is enforced: exactly keys {api, order, db} with bool values."""
+
+    def test_health_status_missing_service_key_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=SAMPLE_METRICS,
+                log_buffer=[],
+                health_status={"api": True, "order": True},  # missing db
+                active_alerts=[],
+            )
+
+    def test_health_status_extra_service_key_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=SAMPLE_METRICS,
+                log_buffer=[],
+                health_status={"api": True, "order": True, "db": True, "cache": True},
+                active_alerts=[],
+            )
+
+    def test_health_status_empty_dict_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=SAMPLE_METRICS,
+                log_buffer=[],
+                health_status={},
+                active_alerts=[],
+            )
+
+    def test_health_status_wrong_service_names_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SREObservation(
+                metrics=SAMPLE_METRICS,
+                log_buffer=[],
+                health_status={"frontend": True, "backend": True, "database": True},
+                active_alerts=[],
+            )
 
 
 class TestSREObservationMissingFields:

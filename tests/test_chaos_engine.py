@@ -431,6 +431,53 @@ class TestClearAll:
 
 
 # ===========================================================================
+# Test: remove_faults_for_service
+# ===========================================================================
+
+class TestRemoveFaultsForService:
+    """remove_faults_for_service() removes all faults targeting a specific service."""
+
+    def test_removes_single_fault_for_service(self) -> None:
+        engine = _make_engine()
+        system = _make_system()
+        engine._inject_specific_fault(system, "bad_config", "api")
+        assert len(engine.get_active_faults()) == 1
+
+        engine.remove_faults_for_service("api")
+        assert engine.get_active_faults() == []
+
+    def test_removes_only_target_service_faults(self) -> None:
+        engine = _make_engine()
+        system = _make_system()
+        engine._inject_specific_fault(system, "bad_config", "api")
+        engine._inject_specific_fault(system, "memory_leak", "db")
+        assert len(engine.get_active_faults()) == 2
+
+        engine.remove_faults_for_service("api")
+        faults = engine.get_active_faults()
+        assert len(faults) == 1
+        assert faults[0]["target_service"] == "db"
+
+    def test_removes_multiple_faults_on_same_service(self) -> None:
+        """If a service has multiple fault types, all are removed."""
+        engine = _make_engine()
+        system = _make_system()
+        engine._inject_specific_fault(system, "bad_config", "db")
+        engine._inject_specific_fault(system, "memory_leak", "db")
+        assert len(engine.get_active_faults()) == 2
+
+        engine.remove_faults_for_service("db")
+        assert engine.get_active_faults() == []
+
+    def test_no_op_when_service_has_no_faults(self) -> None:
+        engine = _make_engine()
+        system = _make_system()
+        engine._inject_specific_fault(system, "bad_config", "api")
+        engine.remove_faults_for_service("db")  # db has no faults
+        assert len(engine.get_active_faults()) == 1
+
+
+# ===========================================================================
 # Test: Probability 0 produces no faults
 # ===========================================================================
 

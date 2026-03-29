@@ -503,6 +503,102 @@ class TestCorrectRemediation:
 
 
 # ===================================================================
+# 13b. Rollback clears chaos engine faults and active_incidents
+# ===================================================================
+
+class TestRollbackClearsFaults:
+    """After a successful rollback that remediates bad_config, the chaos
+    engine fault is also cleared and active_incidents becomes empty."""
+
+    def test_rollback_clears_active_incidents(self) -> None:
+        """Inject bad_config -> rollback -> active_incidents should be empty."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        # Inject bad_config via chaos engine
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        # Verify incident is present
+        state = env.state
+        assert len(state.active_incidents) > 0
+        assert any("bad_config" in inc for inc in state.active_incidents)
+
+        # Apply rollback
+        obs = env.step(_rollback("db"))
+
+        # Verify service recovered
+        assert obs.health_status["db"] is True
+
+        # Verify active_incidents is empty
+        state = env.state
+        assert state.active_incidents == [], (
+            f"Expected empty active_incidents after rollback, got {state.active_incidents}"
+        )
+
+    def test_rollback_clears_chaos_engine_faults(self) -> None:
+        """Chaos engine should have no active faults for the service after rollback."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "bad_config", "api")
+
+        # Verify chaos engine tracks the fault
+        assert len(env._chaos.get_active_faults()) == 1
+
+        # Apply rollback
+        env.step(_rollback("api"))
+
+        # Chaos engine should have no faults
+        assert env._chaos.get_active_faults() == []
+
+    def test_rollback_only_clears_target_service_faults(self) -> None:
+        """Rollback on one service should not clear faults on other services."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "bad_config", "api")
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        # Rollback only api
+        env.step(_rollback("api"))
+
+        # api fault should be cleared, db fault should remain
+        faults = env._chaos.get_active_faults()
+        assert len(faults) == 1
+        assert faults[0]["target_service"] == "db"
+
+        # active_incidents should still have the db incident
+        state = env.state
+        assert len(state.active_incidents) > 0
+        assert any("db" in inc for inc in state.active_incidents)
+
+    def test_full_rollback_lifecycle(self) -> None:
+        """Full lifecycle: inject bad_config, verify incident appears,
+        rollback, verify both chaos engine and system faults cleared."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        # Step 1: Inject bad_config
+        env._chaos._inject_specific_fault(env._system, "bad_config", "order")
+        assert not env._system._services["order"]["is_healthy"]
+        assert env._system._active_faults.get("order") == "bad_config"
+        assert len(env._chaos.get_active_faults()) == 1
+
+        # Step 2: Verify incident appears in state
+        state = env.state
+        assert len(state.active_incidents) > 0
+
+        # Step 3: Rollback
+        obs = env.step(_rollback("order"))
+        assert obs.health_status["order"] is True
+
+        # Step 4: Verify both system and chaos engine faults cleared
+        assert "order" not in env._system._active_faults
+        assert env._chaos.get_active_faults() == []
+        assert env.state.active_incidents == []
+
+
+# ===================================================================
 # 14. Mismatched remediation does not resolve fault
 # ===================================================================
 

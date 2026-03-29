@@ -139,7 +139,16 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             )
 
         # 1. Apply the agent's action to the simulated system
+        #    Track whether a rollback clears a fault from the system
+        had_fault_before = action.target_service in self._system._active_faults
         self._system.apply_action(action.action_type, action.target_service)
+        has_fault_after = action.target_service in self._system._active_faults
+
+        # If a remediation action cleared a fault from the simulated system,
+        # also remove the corresponding fault from the chaos engine's tracker
+        # so that active_incidents stays in sync.
+        if had_fault_before and not has_fault_after:
+            self._chaos.remove_faults_for_service(action.target_service)
 
         # 2. Chaos engine: potentially inject new faults and tick existing ones
         self._chaos.inject_fault(self._system)

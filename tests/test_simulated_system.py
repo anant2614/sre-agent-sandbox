@@ -71,6 +71,33 @@ class TestSimulatedSystemInit:
         system = SimulatedSystem()
         assert system is not None
 
+    def test_constructor_initializes_services(self) -> None:
+        """SimulatedSystem() should be immediately usable without explicit reset()."""
+        system = SimulatedSystem()
+        metrics = system.get_metrics()
+        assert set(metrics.keys()) == {"api", "order", "db"}
+        for svc in SERVICE_NAMES:
+            assert metrics[svc]["cpu"] == BASELINE_CPU
+            assert metrics[svc]["memory"] == BASELINE_MEMORY
+            assert metrics[svc]["latency"] == BASELINE_LATENCY
+
+    def test_constructor_health_status_without_reset(self) -> None:
+        """get_health_status() works immediately on a fresh instance."""
+        system = SimulatedSystem()
+        health = system.get_health_status()
+        for svc in SERVICE_NAMES:
+            assert health[svc] is True
+
+    def test_constructor_log_buffer_without_reset(self) -> None:
+        """get_log_buffer() works immediately on a fresh instance."""
+        system = SimulatedSystem()
+        assert system.get_log_buffer() == []
+
+    def test_constructor_active_alerts_without_reset(self) -> None:
+        """get_active_alerts() works immediately on a fresh instance."""
+        system = SimulatedSystem()
+        assert system.get_active_alerts() == []
+
     def test_reset_creates_three_services(self) -> None:
         system = _make_system()
         metrics = system.get_metrics()
