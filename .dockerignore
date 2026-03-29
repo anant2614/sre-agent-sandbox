@@ -1,0 +1,34 @@
+# Virtual environments
+.venv/
+venv/
+
+# Version control
+.git/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Tests
+tests/
+
+# Factory mission infrastructure
+.factory/
+
+# Pytest / Ruff caches
+.pytest_cache/
+.ruff_cache/
+
+# Distribution artifacts
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
