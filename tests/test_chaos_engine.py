@@ -721,8 +721,8 @@ class TestLatentDependencyTimeout:
 
         # Check log buffer has a timeout/threshold entry
         timeout_logs = [
-            l for l in system.get_log_buffer()
-            if "threshold" in l.lower() or "timeout" in l.lower()
+            line for line in system.get_log_buffer()
+            if "threshold" in line.lower() or "timeout" in line.lower()
         ]
         assert len(timeout_logs) >= 1, (
             f"Expected timeout log entry, got logs: {system.get_log_buffer()}"

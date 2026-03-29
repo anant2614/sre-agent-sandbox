@@ -1,0 +1,87 @@
+{
+  "milestone": "core-environment",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 39,
+    "passed": 37,
+    "failed": 2,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-CHAOS-001",
+    "VAL-CHAOS-003",
+    "VAL-CHAOS-004",
+    "VAL-CHAOS-005",
+    "VAL-CHAOS-006",
+    "VAL-CROSS-001",
+    "VAL-CROSS-002",
+    "VAL-CROSS-003",
+    "VAL-CROSS-004",
+    "VAL-CROSS-007",
+    "VAL-CROSS-008",
+    "VAL-ENV-001",
+    "VAL-ENV-002",
+    "VAL-ENV-003",
+    "VAL-ENV-004",
+    "VAL-ENV-005",
+    "VAL-ENV-006",
+    "VAL-ENV-007",
+    "VAL-ENV-008",
+    "VAL-ENV-009",
+    "VAL-ENV-010",
+    "VAL-ENV-011",
+    "VAL-ENV-012",
+    "VAL-ENV-013",
+    "VAL-ENV-014",
+    "VAL-ENV-015",
+    "VAL-ENV-016",
+    "VAL-ENV-017",
+    "VAL-ENV-018",
+    "VAL-ENV-019",
+    "VAL-META-001",
+    "VAL-REW-001",
+    "VAL-REW-002",
+    "VAL-REW-003",
+    "VAL-REW-004",
+    "VAL-REW-005",
+    "VAL-REW-006"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-CHAOS-002",
+      "reason": "Latency cascade is progressive (db 70 -> 250, order 62 -> 170), but no timeout/error indicator appears in alerts or logs after threshold crossings; required upstream timeout errors were not observed."
+    },
+    {
+      "id": "VAL-CHAOS-007",
+      "reason": "Cascade order db -> order -> api is observed, but remediating db via restart does not reduce all tiers (db latency dropped 137.0 -> 67.1 while order rose 118.8 -> 128.1 and api rose 83.5 -> 91.3)."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added Flow Validator Guidance for terminal-cli isolation boundaries and evidence/report expectations.",
+      "source": "setup"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Documented using `uv run`/`.venv/bin/python` for Python tooling because system python may lack pytest.",
+      "source": "flow-report"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Documented that bad_config flips health immediately but does not inherently increase latency; metric-restoration tests should pre-establish degraded metrics.",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": null,
+  "flowReports": [
+    ".factory/validation/core-environment/user-testing/flows/g1-baseline.json",
+    ".factory/validation/core-environment/user-testing/flows/g2-lifecycle.json",
+    ".factory/validation/core-environment/user-testing/flows/g3-actions.json",
+    ".factory/validation/core-environment/user-testing/flows/g4-chaos.json",
+    ".factory/validation/core-environment/user-testing/flows/g5-reward-cross.json"
+  ],
+  "generatedAt": "2026-03-29T11:54:16.653157+00:00"
+}
