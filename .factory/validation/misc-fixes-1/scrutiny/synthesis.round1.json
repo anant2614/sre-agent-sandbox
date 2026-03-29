@@ -1,7 +1,7 @@
 {
   "milestone": "misc-fixes-1",
-  "round": 2,
-  "status": "pass",
+  "round": 1,
+  "status": "fail",
   "validatorsRun": {
     "test": {
       "passed": true,
@@ -21,20 +21,28 @@
   },
   "reviewsSummary": {
     "total": 1,
-    "passed": 1,
-    "failed": 0,
-    "failedFeatures": []
+    "passed": 0,
+    "failed": 1,
+    "failedFeatures": [
+      "fix-rollback-overclear-faults"
+    ]
   },
-  "blockingIssues": [],
+  "blockingIssues": [
+    {
+      "featureId": "fix-rollback-overclear-faults",
+      "severity": "blocking",
+      "description": "RestartService does not clear bad_config from SimulatedSystem._active_faults, leaving stale active_incidents after restart (sre_agent_sandbox/simulated_system.py:116)."
+    }
+  ],
   "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
       "target": "skills",
-      "suggestion": "For env-worker runs, enforce and validate startup reads of `.factory/research/openenv-api.md` and `.factory/library/architecture.md` during transcript skeleton checks.",
-      "evidence": "Both fix-feature review reports in this milestone (`fix-rollback-overclear-faults`, `fix-restart-clears-bad-config-from-system`) observed worker transcripts missing these required reads despite env-worker skill step 1 requiring them.",
-      "isSystemic": true
+      "suggestion": "For env-worker runs, explicitly enforce and verify startup reads of `.factory/research/openenv-api.md` and `.factory/library/architecture.md` in transcript skeleton checks.",
+      "evidence": "Review of feature fix-rollback-overclear-faults found session 38fed58e-e883-4f33-b080-02949cb697a2 did not show these required reads in worker-transcripts.jsonl.",
+      "isSystemic": false
     }
   ],
   "rejectedObservations": [],
-  "previousRound": ".factory/validation/misc-fixes-1/scrutiny/synthesis.round1.json"
+  "previousRound": null
 }
