@@ -1,0 +1,173 @@
+{
+  "groupId": "g1-server-api",
+  "surface": "terminal-cli",
+  "assertions": [
+    "VAL-SRV-001",
+    "VAL-SRV-002",
+    "VAL-SRV-003",
+    "VAL-SRV-004",
+    "VAL-SRV-005",
+    "VAL-SRV-006",
+    "VAL-SRV-007",
+    "VAL-SRV-008",
+    "VAL-SRV-009"
+  ],
+  "results": [
+    {
+      "id": "VAL-SRV-001",
+      "status": "pass",
+      "reason": "GET /health returned HTTP 200 with JSON body {\"status\":\"ok\"}; measured latency 0.004882s (<500ms).",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-001-health-headers.txt",
+        "server-docker-demo/g1-server-api/VAL-SRV-001-health-body.json",
+        "server-docker-demo/g1-server-api/VAL-SRV-001-health-metrics.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-002",
+      "status": "pass",
+      "reason": "GET /schema returned HTTP 200; response contained both action_space and observation_space, and both schemas passed jsonschema meta-schema validation.",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-002-schema-response.json",
+        "server-docker-demo/g1-server-api/VAL-SRV-002-schema-metrics.txt",
+        "server-docker-demo/g1-server-api/VAL-SRV-002-schema-validation.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-003",
+      "status": "pass",
+      "reason": "POST /reset returned HTTP 200 with required SREObservation keys (metrics, log_buffer, health_status, active_alerts, done, reward); done=false.",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-003-reset-response.json",
+        "server-docker-demo/g1-server-api/VAL-SRV-003-reset-metrics.txt",
+        "server-docker-demo/g1-server-api/VAL-SRV-003-reset-validation.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-004",
+      "status": "fail",
+      "reason": "POST /step after reset returned HTTP 200 with observation, reward, info, terminated, truncated; contract requires a done field, but response did not include done.",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-004-step-response.json",
+        "server-docker-demo/g1-server-api/VAL-SRV-004-step-metrics.txt",
+        "server-docker-demo/g1-server-api/VAL-SRV-004-step-validation.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-005",
+      "status": "pass",
+      "reason": "POST /step without prior reset returned HTTP 409 with error detail 'Environment has not been reset. Call POST /reset first.'",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-005-step-before-reset-headers.txt",
+        "server-docker-demo/g1-server-api/VAL-SRV-005-step-before-reset-body.json",
+        "server-docker-demo/g1-server-api/VAL-SRV-005-step-before-reset-metrics.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-006",
+      "status": "pass",
+      "reason": "WebSocket /ws lifecycle succeeded: reset -> observation, step -> step_result, state -> state with step_count=1, close -> clean disconnect.",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-006-ws-lifecycle.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-007",
+      "status": "pass",
+      "reason": "Malformed JSON and unknown type both returned error messages while connection remained usable for subsequent valid reset/step messages.",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-007-ws-error-handling.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-008",
+      "status": "pass",
+      "reason": "After reset + two step calls, GET /state returned HTTP 200 with required fields and step_count=2 matching executed steps.",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-008-state-response.json",
+        "server-docker-demo/g1-server-api/VAL-SRV-008-state-metrics.txt",
+        "server-docker-demo/g1-server-api/VAL-SRV-008-state-validation.txt"
+      ]
+    },
+    {
+      "id": "VAL-SRV-009",
+      "status": "pass",
+      "reason": "Two concurrent WebSocket sessions remained independent: after stepping ws1 only, state1.step_count=1 while state2.step_count=0; subsequent step results differed by session.",
+      "evidence": [
+        "server-docker-demo/g1-server-api/VAL-SRV-009-ws-concurrent-sessions.txt"
+      ]
+    }
+  ],
+  "commandsRun": [
+    {
+      "command": "\"/Users/anant/ai/sre-agent-sandbox/.venv/bin/python\" -m uvicorn sre_agent_sandbox.server.app:app --host 127.0.0.1 --port 8000",
+      "exitCode": 0,
+      "observation": "Server started on http://127.0.0.1:8000 (startup log confirmed)."
+    },
+    {
+      "command": "curl -sS -D <...>/VAL-SRV-001-health-headers.txt -o <...>/VAL-SRV-001-health-body.json -w \"http_code=%{http_code}\\ntime_total=%{time_total}\\n\" http://127.0.0.1:8000/health",
+      "exitCode": 0,
+      "observation": "http_code=200, time_total=0.004882, body={\"status\":\"ok\"}."
+    },
+    {
+      "command": "curl http://127.0.0.1:8000/schema + python jsonschema validator_for(...).check_schema(...) for action_space/observation_space",
+      "exitCode": 0,
+      "observation": "http_code=200, has_action_space=True, has_observation_space=True, both schemas meta-schema valid."
+    },
+    {
+      "command": "curl -X POST http://127.0.0.1:8000/reset with seed + python response structure check",
+      "exitCode": 0,
+      "observation": "http_code=200, missing_keys=[], done_is_false=True, api/order/db keys present."
+    },
+    {
+      "command": "curl reset then curl -X POST http://127.0.0.1:8000/step with action={action_type:0,target_service:api} in same cookie session + python field check",
+      "exitCode": 0,
+      "observation": "http_code=200, missing_core_keys=[], has_done_field=False, has_terminated_field=True, has_truncated_field=True."
+    },
+    {
+      "command": "curl -X POST http://127.0.0.1:8000/step without prior reset",
+      "exitCode": 0,
+      "observation": "http_code=409, body.detail='Environment has not been reset. Call POST /reset first.'."
+    },
+    {
+      "command": "python websockets script: reset -> step -> state -> close on ws://127.0.0.1:8000/ws",
+      "exitCode": 0,
+      "observation": "reset_response_type=observation; step_response_type=step_result; state_step_count=1; close_disconnect_clean=True."
+    },
+    {
+      "command": "python websockets script: malformed JSON and unknown type handling on ws://127.0.0.1:8000/ws",
+      "exitCode": 0,
+      "observation": "malformed_response_type=error; post_malformed_reset_type=observation; unknown_response_type=error; post_unknown_step_type=step_result."
+    },
+    {
+      "command": "curl reset + two step calls + curl http://127.0.0.1:8000/state in same cookie session + python state check",
+      "exitCode": 0,
+      "observation": "state http_code=200, missing_keys=[], step_count=2, step_count_matches_expected=True."
+    },
+    {
+      "command": "python concurrent websockets script with two ws connections to ws://127.0.0.1:8000/ws",
+      "exitCode": 0,
+      "observation": "initial_metrics_equal=True; state1_step_count=1; state2_step_count=0; step_results_differ=True."
+    },
+    {
+      "command": "kill <server pids>",
+      "exitCode": 0,
+      "observation": "All started server processes were terminated and verified stopped."
+    },
+    {
+      "command": "\"/Users/anant/ai/sre-agent-sandbox/.venv/bin/python\" -m pytest /Users/anant/ai/sre-agent-sandbox/tests -v --tb=short -x",
+      "exitCode": 0,
+      "observation": "Test suite result: 434 passed in 1.45s."
+    }
+  ],
+  "toolsUsed": [
+    "uvicorn",
+    "curl",
+    "python",
+    "websockets",
+    "jsonschema",
+    "pytest"
+  ],
+  "frictions": [],
+  "blockers": []
+}

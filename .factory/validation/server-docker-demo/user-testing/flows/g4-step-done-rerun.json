@@ -1,0 +1,21 @@
+{
+  "groupId": "g4-step-done-rerun",
+  "milestone": "server-docker-demo",
+  "surface": "terminal-cli",
+  "assertions": [
+    {
+      "id": "VAL-SRV-004",
+      "status": "pass",
+      "evidence": [
+        "server-docker-demo/g4-step-done-rerun/command_results.txt",
+        "server-docker-demo/g4-step-done-rerun/reset_headers.txt",
+        "server-docker-demo/g4-step-done-rerun/reset_body.json",
+        "server-docker-demo/g4-step-done-rerun/step_headers.txt",
+        "server-docker-demo/g4-step-done-rerun/step_body.json"
+      ]
+    }
+  ],
+  "toolsUsed": ["curl"],
+  "frictions": [],
+  "blockers": []
+}

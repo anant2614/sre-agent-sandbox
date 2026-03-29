@@ -1,0 +1,133 @@
+{
+  "groupId": "g2-docker",
+  "surface": "terminal-cli",
+  "assertions": [
+    "VAL-DOCK-001",
+    "VAL-DOCK-002",
+    "VAL-DOCK-003",
+    "VAL-DOCK-004",
+    "VAL-CROSS-005"
+  ],
+  "results": [
+    {
+      "id": "VAL-DOCK-001",
+      "status": "pass",
+      "reason": "docker build -t sre-agent-sandbox completed with exit code 0; build log shows successful two-stage export and image tag.",
+      "evidence": [
+        "server-docker-demo/g2-docker/VAL-DOCK-001-build.log"
+      ]
+    },
+    {
+      "id": "VAL-DOCK-002",
+      "status": "pass",
+      "reason": "Container started on port 8000 and /health returned HTTP 200 on first poll at 0.012s (within 30s); docker ps showed container Up.",
+      "evidence": [
+        "server-docker-demo/g2-docker/VAL-DOCK-002-run-container.txt",
+        "server-docker-demo/g2-docker/VAL-DOCK-002-health-check.txt",
+        "server-docker-demo/g2-docker/VAL-DOCK-002-docker-ps.txt"
+      ]
+    },
+    {
+      "id": "VAL-DOCK-003",
+      "status": "pass",
+      "reason": "Host-mapped port 8000 served API endpoints successfully: GET /health 200, GET /schema 200, POST /reset 200 with observation payload.",
+      "evidence": [
+        "server-docker-demo/g2-docker/VAL-DOCK-003-health-headers.txt",
+        "server-docker-demo/g2-docker/VAL-DOCK-003-health-body.json",
+        "server-docker-demo/g2-docker/VAL-DOCK-003-schema-headers.txt",
+        "server-docker-demo/g2-docker/VAL-DOCK-003-schema-body.json",
+        "server-docker-demo/g2-docker/VAL-DOCK-003-reset-headers.txt",
+        "server-docker-demo/g2-docker/VAL-DOCK-003-reset-body.json"
+      ]
+    },
+    {
+      "id": "VAL-DOCK-004",
+      "status": "pass",
+      "reason": "docker images reported size 480MB (<500MB threshold); docker image inspect byte size also captured.",
+      "evidence": [
+        "server-docker-demo/g2-docker/VAL-DOCK-004-image-size.txt",
+        "server-docker-demo/g2-docker/VAL-DOCK-004-image-bytes.txt"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-005",
+      "status": "pass",
+      "reason": "End-to-end Docker flow succeeded: image built, container started, REST client completed full episode to terminated=true (60 steps), WebSocket lifecycle reset->step->state->close worked, and container was stopped/removed cleanly.",
+      "evidence": [
+        "server-docker-demo/g2-docker/VAL-DOCK-001-build.log",
+        "server-docker-demo/g2-docker/VAL-DOCK-002-run-container.txt",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-rest-episode-trace.json",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-rest-episode-summary.json",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-websocket-trace.json",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-client-run.txt",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-container-stop.txt",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-container-rm.txt",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-post-cleanup-ps.txt",
+        "server-docker-demo/g2-docker/VAL-CROSS-005-post-cleanup-ps-size.txt"
+      ]
+    }
+  ],
+  "commandsRun": [
+    {
+      "command": "docker build -t sre-agent-sandbox /Users/anant/ai/sre-agent-sandbox > .../VAL-DOCK-001-build.log 2>&1",
+      "exitCode": 0,
+      "observation": "Build completed; final log includes naming to docker.io/library/sre-agent-sandbox:latest."
+    },
+    {
+      "command": "docker run -d -p 8000:8000 --name g2-docker-val sre-agent-sandbox > .../VAL-DOCK-002-run-container.txt 2>&1",
+      "exitCode": 0,
+      "observation": "Container ID returned and container entered Up state."
+    },
+    {
+      "command": "python3 health polling script against http://127.0.0.1:8000/health > .../VAL-DOCK-002-health-check.txt",
+      "exitCode": 0,
+      "observation": "HTTP 200 received on attempt 1 at 0.012s with body {\"status\":\"ok\"}."
+    },
+    {
+      "command": "curl GET /health, GET /schema, POST /reset on port 8000 with headers/body captured to VAL-DOCK-003-* files",
+      "exitCode": 0,
+      "observation": "All three endpoints returned HTTP 200 with expected JSON responses."
+    },
+    {
+      "command": "docker images sre-agent-sandbox --format ... > .../VAL-DOCK-004-image-size.txt && docker image inspect sre-agent-sandbox --format '{{.Size}}' > .../VAL-DOCK-004-image-bytes.txt",
+      "exitCode": 0,
+      "observation": "Reported size was 480MB; inspect size 102013326 bytes."
+    },
+    {
+      "command": "/Users/anant/ai/sre-agent-sandbox/.venv/bin/python REST+WebSocket client script > .../VAL-CROSS-005-client-run.txt",
+      "exitCode": 0,
+      "observation": "REST episode terminated=true after 60 steps; WebSocket reset/step/state/close transcript recorded."
+    },
+    {
+      "command": "docker stop g2-docker-val && docker rm g2-docker-val && docker ps -a --filter name=g2-docker-val > .../VAL-CROSS-005-post-cleanup-ps.txt",
+      "exitCode": 0,
+      "observation": "Container stopped and removed; post-cleanup listing file is 0 bytes (no remaining container)."
+    }
+  ],
+  "toolsUsed": [
+    "terminal-cli",
+    "docker",
+    "curl",
+    "python3",
+    "/Users/anant/ai/sre-agent-sandbox/.venv/bin/python"
+  ],
+  "frictions": [
+    {
+      "description": "Initial REST step call returned 422 because payload omitted required wrapper object; endpoint expects {\"action\": {...}}.",
+      "resolved": true,
+      "resolution": "Adjusted client payload shape to match server contract from tests.",
+      "affectedAssertions": [
+        "VAL-CROSS-005"
+      ]
+    },
+    {
+      "description": "Initial REST episode script hit HTTP 409 after reset because session cookie was not persisted between requests.",
+      "resolved": true,
+      "resolution": "Used HTTPCookieProcessor with cookie jar so /step stayed in the same reset session.",
+      "affectedAssertions": [
+        "VAL-CROSS-005"
+      ]
+    }
+  ],
+  "blockers": []
+}

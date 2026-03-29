@@ -27,6 +27,8 @@ Testing surface, resource cost classification, and validation approach.
 - Port 8000 must be free for server/Docker tests
 - Environment step() is purely in-memory, no external services
 - In current core environment behavior, `bad_config` fault injection immediately flips health but does not by itself increase latency; for metric-restoration checks, establish a degraded metric state before remediation.
+- REST `/step` endpoint expects payload shape `{"action": {"action_type": <int>, "target_service": "<svc>"}}`; sending raw action fields returns HTTP 422.
+- REST session state is cookie-backed; clients must preserve cookies across `/reset` -> `/step` -> `/state` requests or `/step` may return HTTP 409 (not reset).
 
 ## Flow Validator Guidance: terminal-cli
 - Surface scope: Python/CLI validation only (`pytest`, short Python scripts, optional `curl` against local services when explicitly required by assigned assertions).

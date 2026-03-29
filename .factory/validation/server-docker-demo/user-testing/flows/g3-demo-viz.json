@@ -1,0 +1,134 @@
+{
+  "groupId": "g3-demo-viz",
+  "surface": "terminal-cli",
+  "assertions": [
+    "VAL-VIZ-001",
+    "VAL-VIZ-002",
+    "VAL-VIZ-003",
+    "VAL-DEMO-001",
+    "VAL-DEMO-002",
+    "VAL-DEMO-003",
+    "VAL-DEMO-004",
+    "VAL-CROSS-006"
+  ],
+  "results": [
+    {
+      "id": "VAL-VIZ-001",
+      "status": "pass",
+      "reason": "Renderer output includes service rows for api/order/db with status indicators and metric columns (CPU%, Mem%, Lat(ms)) in captured healthy dashboard output.",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-VIZ-001-healthy-render.txt",
+        "server-docker-demo/g3-demo-viz/VAL-VIZ-pytest.txt"
+      ]
+    },
+    {
+      "id": "VAL-VIZ-002",
+      "status": "pass",
+      "reason": "Faulted render output shows 'Active Alerts' populated with 'Active fault on db: bad_config' and includes 'Cumulative Reward' line.",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-VIZ-002-fault-render.txt",
+        "server-docker-demo/g3-demo-viz/VAL-VIZ-003-format-checks.json",
+        "server-docker-demo/g3-demo-viz/VAL-VIZ-pytest.txt"
+      ]
+    },
+    {
+      "id": "VAL-VIZ-003",
+      "status": "pass",
+      "reason": "Format checks recorded max line width of 80 for healthy/fault renders and printable ASCII validation true.",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-VIZ-003-format-checks.json",
+        "server-docker-demo/g3-demo-viz/VAL-VIZ-pytest.txt"
+      ]
+    },
+    {
+      "id": "VAL-DEMO-001",
+      "status": "pass",
+      "reason": "Random-agent episode completed to termination (steps=50, reason=max_steps) with no crash; targeted pytest assertion also passed.",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-001-random-episode.json",
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-targeted-pytest.txt"
+      ]
+    },
+    {
+      "id": "VAL-DEMO-002",
+      "status": "pass",
+      "reason": "Heuristic-agent episode completed to termination (steps=50, reason=max_steps) with no crash; targeted pytest assertion also passed.",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-002-heuristic-episode.json",
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-targeted-pytest.txt"
+      ]
+    },
+    {
+      "id": "VAL-DEMO-003",
+      "status": "pass",
+      "reason": "Using identical seeds 0..4, heuristic mean reward (-49.16) exceeded random mean reward (-186.1301752360623).",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-003-reward-comparison.json",
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-targeted-pytest.txt"
+      ]
+    },
+    {
+      "id": "VAL-DEMO-004",
+      "status": "pass",
+      "reason": "Heuristic action mapping observed bad_config -> rollback (action_type=2, target=db) and memory_leak -> restart (action_type=1, target=order); targeted pytest assertions passed.",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-004-fault-action-pairs.json",
+        "server-docker-demo/g3-demo-viz/VAL-DEMO-targeted-pytest.txt"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "status": "pass",
+      "reason": "Full demo run via uv run python -m demo.run_demo exited 0, emitted ASCII dashboard sections and final comparison with heuristic outperforming random (-213.800 > -571.658).",
+      "evidence": [
+        "server-docker-demo/g3-demo-viz/VAL-CROSS-006-demo-full-run.txt",
+        "server-docker-demo/g3-demo-viz/VAL-CROSS-006-summary.json"
+      ]
+    }
+  ],
+  "commandsRun": [
+    {
+      "command": "mkdir -p /Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/server-docker-demo/g3-demo-viz",
+      "exitCode": 0,
+      "observation": "Evidence directory created/confirmed."
+    },
+    {
+      "command": "uv run pytest /Users/anant/ai/sre-agent-sandbox/tests/test_renderer.py -v > /Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/server-docker-demo/g3-demo-viz/VAL-VIZ-pytest.txt 2>&1",
+      "exitCode": 0,
+      "observation": "18 renderer tests passed."
+    },
+    {
+      "command": "uv run python (inline helper) to capture healthy/fault renders and format checks",
+      "exitCode": 0,
+      "observation": "Generated VAL-VIZ-001/002/003 evidence artifacts with render snapshots and width/ASCII checks."
+    },
+    {
+      "command": "uv run pytest tests/test_demo.py::TestRunEpisode::test_random_agent_completes_episode tests/test_demo.py::TestRunEpisode::test_heuristic_agent_completes_episode tests/test_demo.py::TestHeuristicOutperformsRandom::test_heuristic_better_mean_reward tests/test_demo.py::TestHeuristicAgent::test_rollback_for_bad_config tests/test_demo.py::TestHeuristicAgent::test_restart_for_other_faults -v > /Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/server-docker-demo/g3-demo-viz/VAL-DEMO-targeted-pytest.txt 2>&1",
+      "exitCode": 0,
+      "observation": "5 targeted demo tests passed."
+    },
+    {
+      "command": "uv run python (inline helper) to record run_episode outputs, reward comparison (seeds 0..4), and fault->action mapping",
+      "exitCode": 0,
+      "observation": "Generated VAL-DEMO-001/002/003/004 JSON evidence with deterministic seed strategy documented."
+    },
+    {
+      "command": "uv run python -m demo.run_demo > /Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/server-docker-demo/g3-demo-viz/VAL-CROSS-006-demo-full-run.txt 2>&1",
+      "exitCode": 0,
+      "observation": "Full demo completed with both agents and final reward comparison output."
+    },
+    {
+      "command": "uv run python (inline helper) to parse full demo stdout into VAL-CROSS-006-summary.json",
+      "exitCode": 0,
+      "observation": "Parsed means and confirmed heuristic_outperforms_random=true."
+    }
+  ],
+  "toolsUsed": [
+    "terminal-cli",
+    "uv",
+    "pytest",
+    "python"
+  ],
+  "frictions": [],
+  "blockers": []
+}

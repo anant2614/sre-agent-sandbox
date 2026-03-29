@@ -1,0 +1,55 @@
+{
+  "milestone": "server-docker-demo",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 22,
+    "passed": 21,
+    "failed": 1,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-CROSS-005",
+    "VAL-CROSS-006",
+    "VAL-DEMO-001",
+    "VAL-DEMO-002",
+    "VAL-DEMO-003",
+    "VAL-DEMO-004",
+    "VAL-DOCK-001",
+    "VAL-DOCK-002",
+    "VAL-DOCK-003",
+    "VAL-DOCK-004",
+    "VAL-SRV-001",
+    "VAL-SRV-002",
+    "VAL-SRV-003",
+    "VAL-SRV-005",
+    "VAL-SRV-006",
+    "VAL-SRV-007",
+    "VAL-SRV-008",
+    "VAL-SRV-009",
+    "VAL-VIZ-001",
+    "VAL-VIZ-002",
+    "VAL-VIZ-003"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-SRV-004",
+      "reason": "POST /step after reset returned HTTP 200 with observation, reward, info, terminated, truncated; contract requires a done field, but response did not include done."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Documented REST /step payload wrapper requirement and cookie-backed session persistence requirement discovered in Docker flow validation.",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": null,
+  "flowReports": [
+    ".factory/validation/server-docker-demo/user-testing/flows/g1-server-api.json",
+    ".factory/validation/server-docker-demo/user-testing/flows/g2-docker.json",
+    ".factory/validation/server-docker-demo/user-testing/flows/g3-demo-viz.json"
+  ],
+  "generatedAt": "2026-03-29T13:10:07.007278+00:00"
+}
