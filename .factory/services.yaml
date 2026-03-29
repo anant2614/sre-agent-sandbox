@@ -1,7 +1,7 @@
 commands:
   install: cd /Users/anant/ai/sre-agent-sandbox && uv sync
   test: cd /Users/anant/ai/sre-agent-sandbox && uv run pytest tests/ -v --tb=short -x
-  typecheck: cd /Users/anant/ai/sre-agent-sandbox && uv run python -m py_compile sre_agent_sandbox/models.py && uv run python -m py_compile sre_agent_sandbox/chaos_engine.py && uv run python -m py_compile sre_agent_sandbox/simulated_system.py && uv run python -m py_compile sre_agent_sandbox/reward.py && uv run python -m py_compile sre_agent_sandbox/server/environment.py && uv run python -m py_compile sre_agent_sandbox/server/app.py
+  typecheck: cd /Users/anant/ai/sre-agent-sandbox && uv run python -m py_compile sre_agent_sandbox/models.py && uv run python -m py_compile sre_agent_sandbox/chaos_engine.py && uv run python -m py_compile sre_agent_sandbox/simulated_system.py && uv run python -m py_compile sre_agent_sandbox/reward.py && uv run python -m py_compile sre_agent_sandbox/server/environment.py && uv run python -m py_compile sre_agent_sandbox/server/app.py && uv run python -m py_compile sre_agent_sandbox/renderer.py && uv run python -m py_compile sre_agent_sandbox/demo/run_demo.py
   lint: cd /Users/anant/ai/sre-agent-sandbox && uv run ruff check .
   docker-build: cd /Users/anant/ai/sre-agent-sandbox && docker build -t sre-agent-sandbox .
   demo: cd /Users/anant/ai/sre-agent-sandbox && uv run python -m demo.run_demo
