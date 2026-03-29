@@ -34,6 +34,10 @@ Features involving:
    - Use seeded `random.Random(seed)` for all randomness — never module-level random
    - All simulation is in-memory, no I/O
    - Pydantic v2 with `extra="forbid"` on Action/Observation, `extra="allow"` on State
+   - **Strict type validation**: Use `StrictInt` for integer fields like action_type to reject float coercion (e.g., 1.0 must be rejected). Add explicit tests for coercion rejection.
+   - **Nested dict enforcement**: For dict fields like metrics and health_status, use Pydantic validators or typed models to enforce required keys (api/order/db) and sub-keys (cpu/memory/latency/request_count). Add negative tests for missing/extra keys.
+   - **Constructor initialization**: Classes like SimulatedSystem must have fully initialized state in `__init__` so query methods work immediately without requiring `reset()` first.
+   - **Incident lifecycle**: When implementing fault remediation (e.g., rollback clears bad_config), ensure the corresponding chaos engine fault state is also cleared so that `active_incidents` accurately reflects current faults. Add tests verifying incidents appear during faults and disappear after successful remediation.
 
 4. **Run tests (green phase)**:
    - `uv run pytest tests/ -v --tb=short -x` — all tests must pass
