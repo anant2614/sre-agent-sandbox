@@ -1,0 +1,84 @@
+{
+  "groupId": "g1-baseline",
+  "surface": "terminal-cli",
+  "assertions": [
+    "VAL-META-001",
+    "VAL-ENV-001",
+    "VAL-ENV-002",
+    "VAL-ENV-004",
+    "VAL-ENV-010",
+    "VAL-ENV-018"
+  ],
+  "results": [
+    {
+      "id": "VAL-META-001",
+      "status": "pass",
+      "reason": "openenv.yaml parsed successfully, required keys are present, and entry_point imports to SREEnvironment.",
+      "evidence": [
+        "core-environment/g1-baseline/python_meta_env_checks_v2.json",
+        "core-environment/g1-baseline/python_meta_env_checks_v2.log"
+      ]
+    },
+    {
+      "id": "VAL-ENV-001",
+      "status": "pass",
+      "reason": "reset(seed=42) returned valid observation shape with api/order/db metrics in bounds, all services healthy, empty alerts, done=False.",
+      "evidence": [
+        "core-environment/g1-baseline/python_meta_env_checks_v2.json",
+        "core-environment/g1-baseline/python_meta_env_checks_v2.log"
+      ]
+    },
+    {
+      "id": "VAL-ENV-002",
+      "status": "pass",
+      "reason": "Two fresh envs with seed=42 produced identical reset observations; seeds 42 vs 9999 diverged after 10 NoOp steps.",
+      "evidence": [
+        "core-environment/g1-baseline/python_meta_env_checks_v2.json",
+        "core-environment/g1-baseline/python_meta_env_checks_v2.log"
+      ]
+    },
+    {
+      "id": "VAL-ENV-004",
+      "status": "pass",
+      "reason": "Ten step(action) calls produced valid observations; step_count progressed exactly 1..10 and episode_id stayed constant.",
+      "evidence": [
+        "core-environment/g1-baseline/python_meta_env_checks_v2.json",
+        "core-environment/g1-baseline/python_meta_env_checks_v2.log"
+      ]
+    },
+    {
+      "id": "VAL-ENV-010",
+      "status": "pass",
+      "reason": "Targeted pytest cases passed for all 15 valid action combinations plus invalid action_type/target_service and missing fields raising ValidationError.",
+      "evidence": [
+        "core-environment/g1-baseline/pytest_models_env010_env018.log"
+      ]
+    },
+    {
+      "id": "VAL-ENV-018",
+      "status": "pass",
+      "reason": "Targeted pytest cases confirmed extra fields are rejected for SREAction and SREObservation via ValidationError.",
+      "evidence": [
+        "core-environment/g1-baseline/pytest_models_env010_env018.log"
+      ]
+    }
+  ],
+  "commandsRun": [
+    {
+      "command": "cd \"/Users/anant/ai/sre-agent-sandbox\" && uv run python \"/Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/core-environment/g1-baseline/meta_env_checks_runner.py\" > \"/Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/core-environment/g1-baseline/python_meta_env_checks_v2.log\" 2>&1",
+      "exitCode": 0,
+      "observation": "Generated python_meta_env_checks_v2.json with VAL-META-001, VAL-ENV-001, VAL-ENV-002, and VAL-ENV-004 all pass."
+    },
+    {
+      "command": "cd \"/Users/anant/ai/sre-agent-sandbox\" && uv run pytest tests/test_models.py::TestSREActionValidConstruction::test_valid_action_combos tests/test_models.py::TestSREActionInvalidActionType::test_action_type_5_rejected tests/test_models.py::TestSREActionInvalidActionType::test_action_type_negative_rejected tests/test_models.py::TestSREActionInvalidTargetService::test_unknown_service_rejected tests/test_models.py::TestSREActionInvalidTargetService::test_empty_string_rejected tests/test_models.py::TestSREActionMissingFields::test_missing_action_type tests/test_models.py::TestSREActionMissingFields::test_missing_target_service tests/test_models.py::TestSREActionExtraFields::test_extra_field_rejected tests/test_models.py::TestSREObservationExtraFields::test_extra_field_rejected > \"/Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/core-environment/g1-baseline/pytest_models_env010_env018.log\" 2>&1",
+      "exitCode": 0,
+      "observation": "23 tests passed in 1.06s; includes 15 valid action combinations and ValidationError checks for invalid/missing/extra fields."
+    }
+  ],
+  "toolsUsed": [
+    "pytest",
+    "python"
+  ],
+  "frictions": [],
+  "blockers": []
+}

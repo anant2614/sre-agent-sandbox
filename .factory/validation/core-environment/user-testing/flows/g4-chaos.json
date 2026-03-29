@@ -1,0 +1,122 @@
+{
+  "groupId": "g4-chaos",
+  "surface": "terminal-cli",
+  "testedAt": "2026-03-29T11:52:14.262076+00:00",
+  "assertions": [
+    "VAL-CHAOS-001",
+    "VAL-CHAOS-002",
+    "VAL-CHAOS-003",
+    "VAL-CHAOS-004",
+    "VAL-CHAOS-005",
+    "VAL-CHAOS-006",
+    "VAL-CHAOS-007"
+  ],
+  "results": [
+    {
+      "id": "VAL-CHAOS-001",
+      "status": "pass",
+      "reason": "Memory leak on db increased monotonically (48 -> 56 -> 64 -> 72 -> 80 -> 88 -> 96) and crashed at step 7, confirming gradual degradation over >=3 steps.",
+      "evidence": [
+        "core-environment/g4-chaos/chaos-assertion-observations.json (VAL-CHAOS-001.memory_series, crash_step=7)",
+        "core-environment/g4-chaos/pytest-test_chaos_engine.txt (TestMemoryLeak tests PASSED)"
+      ]
+    },
+    {
+      "id": "VAL-CHAOS-002",
+      "status": "fail",
+      "reason": "Latency cascade is progressive (db 70 -> 250, order 62 -> 170), but no timeout/error indicator appears in alerts or logs after threshold crossings; required upstream timeout errors were not observed.",
+      "evidence": [
+        "core-environment/g4-chaos/chaos-assertion-observations.json (VAL-CHAOS-002.latency_series, has_upstream_timeout_marker=false)",
+        "core-environment/g4-chaos/pytest-test_chaos_engine.txt (TestLatentDependency tests PASSED)"
+      ]
+    },
+    {
+      "id": "VAL-CHAOS-003",
+      "status": "pass",
+      "reason": "Bad config injection immediately flips api from healthy to unhealthy on the injection step and records an immediate unhealthy log/fault marker.",
+      "evidence": [
+        "core-environment/g4-chaos/chaos-assertion-observations.json (VAL-CHAOS-003.pre_injection_healthy=true, post_injection_healthy=false)",
+        "core-environment/g4-chaos/pytest-test_chaos_engine.txt (TestBadConfig tests PASSED)"
+      ]
+    },
+    {
+      "id": "VAL-CHAOS-004",
+      "status": "pass",
+      "reason": "Three simultaneous faults remained active together (bad_config/api, latent_dependency/order, memory_leak/db) with independent observable effects on each target.",
+      "evidence": [
+        "core-environment/g4-chaos/chaos-assertion-observations.json (VAL-CHAOS-004.active_faults, independent effect flags=true)",
+        "core-environment/g4-chaos/pytest-test_chaos_engine.txt (TestMultipleFaults tests PASSED)"
+      ]
+    },
+    {
+      "id": "VAL-CHAOS-005",
+      "status": "pass",
+      "reason": "After injected faults, reset() restored baseline metrics for all services, cleared active faults/incidents, and returned all services healthy with empty alerts/log buffer.",
+      "evidence": [
+        "core-environment/g4-chaos/chaos-assertion-observations.json (VAL-CHAOS-005.faults_cleared=true, baseline_metrics_match=true)",
+        "core-environment/g4-chaos/pytest-test_chaos_engine.txt (TestClearAll tests PASSED)"
+      ]
+    },
+    {
+      "id": "VAL-CHAOS-006",
+      "status": "pass",
+      "reason": "Over 120 steps, same seed produced identical fault sequences and different seed produced a divergent sequence.",
+      "evidence": [
+        "core-environment/g4-chaos/chaos-assertion-observations.json (VAL-CHAOS-006.same_seed_sequences_equal=true, different_seed_sequences_differ=true)",
+        "core-environment/g4-chaos/pytest-test_chaos_engine.txt (TestDeterministic tests PASSED)"
+      ]
+    },
+    {
+      "id": "VAL-CHAOS-007",
+      "status": "fail",
+      "reason": "Cascade order db -> order -> api is observed, but remediating db via restart does not reduce all tiers (db latency dropped 137.0 -> 67.1 while order rose 118.8 -> 128.1 and api rose 83.5 -> 91.3).",
+      "evidence": [
+        "core-environment/g4-chaos/chaos-assertion-observations.json (VAL-CHAOS-007.cascade_rows, restart_reduced_all_tiers=false)",
+        "core-environment/g4-chaos/pytest-test_chaos_engine.txt (TestLatentDependency tests PASSED)"
+      ]
+    }
+  ],
+  "commandsRun": [
+    {
+      "command": "python3 -m pytest /Users/anant/ai/sre-agent-sandbox/tests/test_chaos_engine.py -v --tb=short",
+      "exitCode": 1,
+      "observation": "Failed in system Python: No module named pytest."
+    },
+    {
+      "command": "uv --version",
+      "exitCode": 0,
+      "observation": "uv 0.10.6 available."
+    },
+    {
+      "command": "uv run pytest /Users/anant/ai/sre-agent-sandbox/tests/test_chaos_engine.py -v --tb=short",
+      "exitCode": 0,
+      "observation": "43 tests passed; targeted chaos test suite succeeded."
+    },
+    {
+      "command": "uv run python - <<'PY' > /Users/anant/.factory/missions/5eacc6ac-9024-4b6e-9b1b-e7e89bde694a/evidence/core-environment/g4-chaos/chaos-assertion-observations.json",
+      "exitCode": 0,
+      "observation": "Generated per-assertion metric timelines and remediation observations for VAL-CHAOS-001..007."
+    }
+  ],
+  "toolsUsed": [
+    "pytest",
+    "python"
+  ],
+  "frictions": [
+    {
+      "description": "System python lacked pytest; switched to uv-managed environment.",
+      "resolved": true,
+      "resolution": "Ran tests with `uv run pytest ...`.",
+      "affectedAssertions": [
+        "VAL-CHAOS-001",
+        "VAL-CHAOS-002",
+        "VAL-CHAOS-003",
+        "VAL-CHAOS-004",
+        "VAL-CHAOS-005",
+        "VAL-CHAOS-006",
+        "VAL-CHAOS-007"
+      ]
+    }
+  ],
+  "blockers": []
+}
