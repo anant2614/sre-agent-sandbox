@@ -677,3 +677,298 @@ class TestTick:
 
         # Bad config already set service unhealthy; tick doesn't need to worsen
         assert system._services["api"]["is_healthy"] is False
+
+
+# ===========================================================================
+# Test: Latent dependency timeout signaling (VAL-CHAOS-002)
+# ===========================================================================
+
+class TestLatentDependencyTimeout:
+    """When latent dependency causes latency > timeout threshold,
+    timeout alerts and logs are emitted for the service and upstream."""
+
+    def test_timeout_alert_when_target_exceeds_threshold(self) -> None:
+        """Target service gets timeout alert when latency > 500ms."""
+        from sre_agent_sandbox.chaos_engine import LATENCY_TIMEOUT_THRESHOLD
+
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        # Tick until db latency exceeds threshold
+        # baseline=50, increment=20 per tick, need (500-50)/20 = 22.5 => 23 ticks
+        for _ in range(30):
+            engine.tick(system)
+
+        assert system._services["db"]["latency"] > LATENCY_TIMEOUT_THRESHOLD
+
+        # Check that timeout alert exists for db
+        timeout_alerts = [a for a in system._active_alerts if "Timeout:" in a and "db" in a]
+        assert len(timeout_alerts) >= 1, (
+            f"Expected timeout alert for db, got alerts: {system._active_alerts}"
+        )
+
+    def test_timeout_log_entry_when_threshold_exceeded(self) -> None:
+        """Log buffer should contain a timeout log entry."""
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        for _ in range(30):
+            engine.tick(system)
+
+        # Check log buffer has a timeout/threshold entry
+        timeout_logs = [
+            l for l in system.get_log_buffer()
+            if "threshold" in l.lower() or "timeout" in l.lower()
+        ]
+        assert len(timeout_logs) >= 1, (
+            f"Expected timeout log entry, got logs: {system.get_log_buffer()}"
+        )
+
+    def test_upstream_timeout_alerts_on_cascade(self) -> None:
+        """When db latency causes upstream (order, api) to exceed threshold,
+        upstream timeout alerts are emitted."""
+        from sre_agent_sandbox.chaos_engine import LATENCY_TIMEOUT_THRESHOLD
+
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        # Tick many times so cascade pushes upstream over threshold
+        for _ in range(60):
+            engine.tick(system)
+
+        # order should have cascaded latency above threshold
+        assert system._services["order"]["latency"] > LATENCY_TIMEOUT_THRESHOLD
+
+        # Check for upstream timeout alert mentioning order
+        order_timeout_alerts = [
+            a for a in system._active_alerts
+            if "Timeout:" in a and "order" in a
+        ]
+        assert len(order_timeout_alerts) >= 1, (
+            f"Expected upstream timeout alert for order, got: {system._active_alerts}"
+        )
+
+    def test_timeout_alert_emitted_only_once(self) -> None:
+        """Timeout alert is emitted only once per service per fault, not every tick."""
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        for _ in range(50):
+            engine.tick(system)
+
+        # Count timeout alerts for db
+        db_timeout_alerts = [
+            a for a in system._active_alerts
+            if "Timeout:" in a and "db" in a and "cascade" not in a
+        ]
+        assert len(db_timeout_alerts) == 1, (
+            f"Expected exactly 1 timeout alert for db, got {len(db_timeout_alerts)}: "
+            f"{db_timeout_alerts}"
+        )
+
+    def test_no_timeout_below_threshold(self) -> None:
+        """No timeout alerts when latency stays below threshold."""
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        # Only a few ticks - should stay below 500
+        for _ in range(3):
+            engine.tick(system)
+
+        assert system._services["db"]["latency"] < 500.0
+
+        timeout_alerts = [a for a in system._active_alerts if "Timeout:" in a]
+        assert len(timeout_alerts) == 0
+
+    def test_progressive_latency_then_timeout(self) -> None:
+        """Latency increases progressively; timeout alerts appear only after threshold."""
+        from sre_agent_sandbox.chaos_engine import LATENCY_TIMEOUT_THRESHOLD
+
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        latency_readings = []
+        timeout_tick = None
+        for i in range(40):
+            engine.tick(system)
+            latency_readings.append(system._services["db"]["latency"])
+            if timeout_tick is None:
+                timeout_alerts = [a for a in system._active_alerts if "Timeout:" in a and "db" in a]
+                if timeout_alerts:
+                    timeout_tick = i + 1
+
+        # Verify progressive increase
+        for j in range(1, len(latency_readings)):
+            assert latency_readings[j] > latency_readings[j - 1]
+
+        # Verify timeout alert appeared after threshold was crossed
+        assert timeout_tick is not None, "Expected timeout alert to eventually appear"
+        # The latency at the tick before timeout should be <= threshold
+        pre_timeout_latency = latency_readings[timeout_tick - 2] if timeout_tick >= 2 else 0
+        assert pre_timeout_latency <= LATENCY_TIMEOUT_THRESHOLD
+
+
+# ===========================================================================
+# Test: Latent dependency recovery propagation (VAL-CHAOS-007)
+# ===========================================================================
+
+class TestLatentDependencyRecovery:
+    """When root cause of latent dependency fault is remediated,
+    upstream latencies normalise back to baseline."""
+
+    def test_cascade_contributions_tracked(self) -> None:
+        """Fault tracks cascade contributions per upstream service."""
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        for _ in range(5):
+            engine.tick(system)
+
+        # Internal fault should have cascade_contributions
+        fault = engine._active_faults[0]
+        assert "cascade_contributions" in fault
+        assert "order" in fault["cascade_contributions"]
+        assert fault["cascade_contributions"]["order"] > 0.0
+
+    def test_remove_fault_clears_cascade_latency(self) -> None:
+        """Removing latent_dependency fault undoes cascaded latency on upstream."""
+        import pytest
+
+        engine = _make_engine()
+        system = _make_system()
+        baseline_latency = BASELINE_METRICS["latency"]
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        for _ in range(10):
+            engine.tick(system)
+
+        # Upstream services should have elevated latency
+        assert system._services["order"]["latency"] > baseline_latency
+        assert system._services["api"]["latency"] > baseline_latency
+
+        # Remove the fault with system reference
+        engine.remove_faults_for_service("db", system=system)
+
+        # Upstream latencies should be restored to near-baseline
+        # (The target "db" itself is NOT reset by remove_faults_for_service;
+        # that's handled by the restart/rollback action in simulated_system.)
+        order_lat = system._services["order"]["latency"]
+        api_lat = system._services["api"]["latency"]
+        assert order_lat == pytest.approx(baseline_latency, abs=0.01), (
+            f"order latency should return to baseline {baseline_latency}, got {order_lat}"
+        )
+        assert api_lat == pytest.approx(baseline_latency, abs=0.01), (
+            f"api latency should return to baseline {baseline_latency}, got {api_lat}"
+        )
+
+    def test_remove_fault_without_system_does_not_undo_cascade(self) -> None:
+        """When system is not passed, cascade is not undone (backward compat)."""
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+        for _ in range(10):
+            engine.tick(system)
+
+        order_lat_before = system._services["order"]["latency"]
+        engine.remove_faults_for_service("db")  # no system arg
+
+        # Latency should remain elevated (no undo)
+        assert system._services["order"]["latency"] == order_lat_before
+
+    def test_recovery_clears_timeout_alerts(self) -> None:
+        """Removing latent_dependency fault also clears timeout alerts."""
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        for _ in range(30):
+            engine.tick(system)
+
+        # Should have timeout alerts
+        timeout_alerts_before = [a for a in system._active_alerts if "Timeout:" in a]
+        assert len(timeout_alerts_before) > 0
+
+        engine.remove_faults_for_service("db", system=system)
+
+        # Timeout alerts should be cleared
+        timeout_alerts_after = [a for a in system._active_alerts if "Timeout:" in a]
+        assert len(timeout_alerts_after) == 0, (
+            f"Expected no timeout alerts after recovery, got: {timeout_alerts_after}"
+        )
+
+    def test_three_tier_cascade_and_recovery(self) -> None:
+        """Full 3-tier scenario: fault on db cascades to order then api,
+        then remediating db normalises all tiers."""
+        import pytest
+
+        engine = _make_engine()
+        system = _make_system()
+        baseline = BASELINE_METRICS["latency"]
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+
+        # Step 1: Verify cascade through all 3 tiers
+        for _ in range(10):
+            engine.tick(system)
+
+        db_lat = system._services["db"]["latency"]
+        order_lat = system._services["order"]["latency"]
+        api_lat = system._services["api"]["latency"]
+
+        assert db_lat > baseline
+        assert order_lat > baseline
+        assert api_lat > baseline
+
+        # Step 2: Remediate db
+        engine.remove_faults_for_service("db", system=system)
+
+        # Step 3: Verify upstream latencies return to baseline
+        order_lat_after = system._services["order"]["latency"]
+        api_lat_after = system._services["api"]["latency"]
+
+        assert order_lat_after == pytest.approx(baseline, abs=0.01), (
+            f"order should return to {baseline}, got {order_lat_after}"
+        )
+        assert api_lat_after == pytest.approx(baseline, abs=0.01), (
+            f"api should return to {baseline}, got {api_lat_after}"
+        )
+
+    def test_other_service_faults_unaffected_by_recovery(self) -> None:
+        """Removing fault for one service doesn't affect faults on others."""
+        engine = _make_engine()
+        system = _make_system()
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+        engine._inject_specific_fault(system, "memory_leak", "api")
+
+        for _ in range(5):
+            engine.tick(system)
+
+        api_mem_before = system._services["api"]["memory"]
+
+        # Remove db fault only
+        engine.remove_faults_for_service("db", system=system)
+
+        # Memory leak on api should be unaffected
+        remaining = engine.get_active_faults()
+        assert len(remaining) == 1
+        assert remaining[0]["target_service"] == "api"
+        assert remaining[0]["fault_type"] == "memory_leak"
+        assert system._services["api"]["memory"] == api_mem_before

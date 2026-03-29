@@ -223,10 +223,11 @@ class SimulatedSystem:
     def get_active_alerts(self) -> List[str]:
         """Return currently active alert messages.
 
-        Alerts are dynamically generated based on service state:
-        - Services that are down
-        - Services that are unhealthy
-        - Active faults
+        Combines:
+        - Dynamically generated alerts from service state (down / unhealthy)
+        - Active fault alerts
+        - Persistent alerts stored in ``_active_alerts`` (e.g. timeout alerts
+          added by the ChaosEngine)
         """
         alerts: List[str] = []
 
@@ -239,6 +240,11 @@ class SimulatedSystem:
 
         for service, fault_type in self._active_faults.items():
             alerts.append(f"Active fault on {service}: {fault_type}")
+
+        # Include persistent alerts (e.g. timeout alerts from ChaosEngine)
+        for alert in self._active_alerts:
+            if alert not in alerts:
+                alerts.append(alert)
 
         return alerts
 

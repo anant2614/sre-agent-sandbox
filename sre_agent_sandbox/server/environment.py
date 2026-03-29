@@ -140,15 +140,33 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
 
         # 1. Apply the agent's action to the simulated system
         #    Track whether a rollback clears a fault from the system
-        had_fault_before = action.target_service in self._system._active_faults
+        had_system_fault = action.target_service in self._system._active_faults
         self._system.apply_action(action.action_type, action.target_service)
-        has_fault_after = action.target_service in self._system._active_faults
+        has_system_fault_after = action.target_service in self._system._active_faults
 
-        # If a remediation action cleared a fault from the simulated system,
+        # If a remediation action cleared a system-level fault (e.g. bad_config),
         # also remove the corresponding fault from the chaos engine's tracker
-        # so that active_incidents stays in sync.
-        if had_fault_before and not has_fault_after:
-            self._chaos.remove_faults_for_service(action.target_service)
+        # so that active_incidents stays in sync.  Pass `system` so that
+        # latent_dependency cascade contributions are undone on upstream
+        # services (VAL-CHAOS-007).
+        if had_system_fault and not has_system_fault_after:
+            self._chaos.remove_faults_for_service(
+                action.target_service, system=self._system
+            )
+
+        # For restart/rollback actions, also clear chaos-engine-only faults
+        # (like latent_dependency) that aren't tracked in system._active_faults.
+        # This ensures that restarting a service with a latent_dependency fault
+        # clears the fault and undoes cascaded latency on upstream services.
+        if action.action_type in (1, 2):  # Restart or Rollback
+            has_chaos_fault = any(
+                f["target_service"] == action.target_service
+                for f in self._chaos.get_active_faults()
+            )
+            if has_chaos_fault:
+                self._chaos.remove_faults_for_service(
+                    action.target_service, system=self._system
+                )
 
         # 2. Chaos engine: potentially inject new faults and tick existing ones
         self._chaos.inject_fault(self._system)

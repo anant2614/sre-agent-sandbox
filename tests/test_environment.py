@@ -788,3 +788,157 @@ class TestAllActionTypes:
         action = SREAction(action_type=action_type, target_service=target)
         obs = env.step(action)
         assert isinstance(obs, SREObservation)
+
+
+# ===================================================================
+# 22. Latent dependency timeout signaling through environment
+#     (VAL-CHAOS-002)
+# ===================================================================
+
+class TestLatentDependencyTimeoutViaEnv:
+    """Integration: latent_dependency fault -> threshold exceeded -> timeout alerts."""
+
+    def test_timeout_alerts_appear_in_observation(self) -> None:
+        """After enough steps with latent_dependency, observation has timeout alerts."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        # Inject latent_dependency on db
+        env._chaos._inject_specific_fault(env._system, "latent_dependency", "db")
+
+        # Step until threshold is exceeded (baseline=50, +20/tick => ~23 ticks)
+        obs = None
+        for _ in range(30):
+            obs = env.step(_noop())
+
+        assert obs is not None
+        timeout_alerts = [a for a in obs.active_alerts if "Timeout:" in a]
+        assert len(timeout_alerts) >= 1, (
+            f"Expected timeout alert in observation, got: {obs.active_alerts}"
+        )
+
+    def test_upstream_timeout_alerts_in_observation(self) -> None:
+        """After many steps, upstream services also show timeout alerts."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "latent_dependency", "db")
+
+        obs = None
+        for _ in range(60):
+            obs = env.step(_noop())
+
+        assert obs is not None
+        # Look for order or api timeout alerts
+        upstream_alerts = [
+            a for a in obs.active_alerts
+            if "Timeout:" in a and ("order" in a or "api" in a)
+        ]
+        assert len(upstream_alerts) >= 1, (
+            f"Expected upstream timeout alerts, got: {obs.active_alerts}"
+        )
+
+
+# ===================================================================
+# 23. Latent dependency recovery through environment
+#     (VAL-CHAOS-007)
+# ===================================================================
+
+class TestLatentDependencyRecoveryViaEnv:
+    """Integration: latent_dependency on db -> step -> restart db ->
+    upstream latencies return to near-baseline."""
+
+    def test_restart_db_normalises_upstream_latencies(self) -> None:
+        """Restarting the root cause of latent_dependency normalises upstream."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+        baseline = BASELINE_METRICS["latency"]
+
+        env._chaos._inject_specific_fault(env._system, "latent_dependency", "db")
+
+        # Step to build up cascaded latency
+        for _ in range(10):
+            env.step(_noop())
+
+        # Verify elevated upstream latency
+        assert env._system._services["order"]["latency"] > baseline + 10.0
+        assert env._system._services["api"]["latency"] > baseline + 5.0
+
+        # Restart db to remediate
+        obs = env.step(_restart("db"))
+
+        # After restart, upstream latencies should be near baseline
+        # (Note: natural tick drift ±5 applied after restart)
+        order_lat = obs.metrics["order"]["latency"]
+        api_lat = obs.metrics["api"]["latency"]
+        assert order_lat < baseline + 20.0, (
+            f"order latency should be near baseline after recovery, got {order_lat}"
+        )
+        assert api_lat < baseline + 20.0, (
+            f"api latency should be near baseline after recovery, got {api_lat}"
+        )
+
+    def test_rollback_db_normalises_upstream_latencies(self) -> None:
+        """Rollback on root cause also normalises upstream latencies."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+        baseline = BASELINE_METRICS["latency"]
+
+        env._chaos._inject_specific_fault(env._system, "latent_dependency", "db")
+
+        for _ in range(10):
+            env.step(_noop())
+
+        assert env._system._services["order"]["latency"] > baseline + 10.0
+
+        obs = env.step(_rollback("db"))
+
+        order_lat = obs.metrics["order"]["latency"]
+        api_lat = obs.metrics["api"]["latency"]
+        assert order_lat < baseline + 20.0, (
+            f"order latency should normalise after rollback, got {order_lat}"
+        )
+        assert api_lat < baseline + 20.0, (
+            f"api latency should normalise after rollback, got {api_lat}"
+        )
+
+    def test_full_lifecycle_fault_cascade_recovery(self) -> None:
+        """Full lifecycle: inject latent_dependency on db, observe cascade,
+        restart db, verify all tiers return to baseline."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+        baseline = BASELINE_METRICS["latency"]
+
+        # Phase 1: Inject and cascade
+        env._chaos._inject_specific_fault(env._system, "latent_dependency", "db")
+
+        latencies_over_time = {"db": [], "order": [], "api": []}
+        for _ in range(15):
+            obs = env.step(_noop())
+            for svc in SERVICE_NAMES:
+                latencies_over_time[svc].append(obs.metrics[svc]["latency"])
+
+        # Verify all tiers degraded
+        for svc in SERVICE_NAMES:
+            assert latencies_over_time[svc][-1] > baseline, (
+                f"{svc} should be degraded, last latency={latencies_over_time[svc][-1]}"
+            )
+
+        # Phase 2: Remediate db
+        obs = env.step(_restart("db"))
+
+        # Phase 3: Verify recovery
+        # db restarted to baseline (then drift applied)
+        db_lat = obs.metrics["db"]["latency"]
+        order_lat = obs.metrics["order"]["latency"]
+        api_lat = obs.metrics["api"]["latency"]
+
+        assert db_lat < baseline + 15.0, (
+            f"db should be near baseline after restart, got {db_lat}"
+        )
+        assert order_lat < baseline + 20.0, (
+            f"order should normalise after db restart, got {order_lat}"
+        )
+        assert api_lat < baseline + 20.0, (
+            f"api should normalise after db restart, got {api_lat}"
+        )

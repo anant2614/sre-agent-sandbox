@@ -3,7 +3,9 @@
 Supports three fault types:
   - **MemoryLeak**: gradual memory increase per tick until crash at 95%.
   - **LatentDependency**: progressive latency increase with upstream cascade
-    through the dependency chain (db -> order -> api).
+    through the dependency chain (db -> order -> api).  When latency exceeds
+    the timeout threshold, timeout alerts/logs are emitted for the service
+    and its upstream callers.
   - **BadConfig**: immediate service unhealthy with high error rate on
     injection step.
 
@@ -29,6 +31,7 @@ MEMORY_CRASH_THRESHOLD: float = 95.0  # service goes down at this memory %
 # Latent dependency parameters
 LATENCY_INCREMENT: float = 20.0  # latency increase per tick on target
 LATENCY_CASCADE_FACTOR: float = 0.6  # fraction of latency increase passed upstream
+LATENCY_TIMEOUT_THRESHOLD: float = 500.0  # latency above this triggers timeout alerts
 
 # Reverse dependency map: service -> list of services that depend on it
 # e.g. db is depended on by order, order is depended on by api
@@ -120,17 +123,49 @@ class ChaosEngine:
             for f in self._active_faults
         ]
 
-    def remove_faults_for_service(self, target_service: str) -> None:
+    def remove_faults_for_service(
+        self,
+        target_service: str,
+        system: SimulatedSystem | None = None,
+    ) -> None:
         """Remove all active faults targeting *target_service*.
 
         Used when a remediation action successfully resolves a fault,
         so that the chaos engine's fault tracking stays in sync with
         the simulated system state.
+
+        For ``latent_dependency`` faults, if *system* is provided, the
+        cascaded latency contributions on upstream services are also
+        removed so that upstream latencies normalise after the root
+        cause is remediated.
         """
-        self._active_faults = [
-            f for f in self._active_faults
-            if f["target_service"] != target_service
-        ]
+        remaining: List[Dict[str, Any]] = []
+        for f in self._active_faults:
+            if f["target_service"] == target_service:
+                # If this is a latent_dependency fault, undo cascade contributions
+                if f["fault_type"] == "latent_dependency" and system is not None:
+                    cascade_contribs: Dict[str, float] = f.get(
+                        "cascade_contributions", {}
+                    )
+                    for svc_name, amount in cascade_contribs.items():
+                        svc = system._services[svc_name]
+                        svc["latency"] = max(0.0, svc["latency"] - amount)
+
+                    # Remove timeout alerts that were added by this fault
+                    system._active_alerts = [
+                        a for a in system._active_alerts
+                        if not (
+                            a.startswith("Timeout:")
+                            and (
+                                target_service in a
+                                or f"cascade from {target_service}" in a
+                            )
+                        )
+                    ]
+                # Drop this fault (don't append to remaining)
+            else:
+                remaining.append(f)
+        self._active_faults = remaining
 
     def clear_all(self) -> None:
         """Remove all active faults."""
@@ -163,6 +198,9 @@ class ChaosEngine:
 
         elif fault_type == "latent_dependency":
             fault["accumulated_latency"] = 0.0
+            # Track cumulative cascaded latency per upstream service so we
+            # can undo it when the fault is remediated.
+            fault["cascade_contributions"] = {}  # type: Dict[str, float]
             self._active_faults.append(fault)
 
         elif fault_type == "bad_config":
@@ -207,7 +245,12 @@ class ChaosEngine:
         svc: Dict[str, Any],
         target: str,
     ) -> None:
-        """Progress a latent dependency fault and cascade upstream."""
+        """Progress a latent dependency fault and cascade upstream.
+
+        When any service's latency exceeds ``LATENCY_TIMEOUT_THRESHOLD``,
+        timeout alerts and log entries are emitted for the service and
+        its upstream callers.
+        """
         if svc["is_down"]:
             return
 
@@ -215,19 +258,25 @@ class ChaosEngine:
         svc["latency"] += LATENCY_INCREMENT
         fault["accumulated_latency"] += LATENCY_INCREMENT
 
-        # Cascade upstream through the dependency chain
-        self._cascade_latency(system, target, LATENCY_INCREMENT)
+        # Cascade upstream through the dependency chain, tracking contributions
+        self._cascade_latency(system, target, LATENCY_INCREMENT, fault)
+
+        # --- Timeout signalling (VAL-CHAOS-002) ---
+        self._check_timeout_alerts(system, target, fault)
 
     def _cascade_latency(
         self,
         system: SimulatedSystem,
         source: str,
         latency_increase: float,
+        fault: Dict[str, Any] | None = None,
     ) -> None:
         """Propagate latency increase upstream from *source*.
 
         For each service that depends on *source*, add a fraction of the
-        latency increase, then recurse upward.
+        latency increase, then recurse upward.  When *fault* is provided,
+        the cascaded amounts are recorded in ``fault["cascade_contributions"]``
+        so they can be undone when the fault is remediated.
         """
         upstream_services = _REVERSE_DEPS.get(source, [])
         for upstream in upstream_services:
@@ -236,5 +285,70 @@ class ChaosEngine:
                 continue
             cascade_amount = latency_increase * LATENCY_CASCADE_FACTOR
             upstream_svc["latency"] += cascade_amount
+
+            # Track cumulative cascade contribution for recovery
+            if fault is not None:
+                contribs = fault.setdefault("cascade_contributions", {})
+                contribs[upstream] = contribs.get(upstream, 0.0) + cascade_amount
+
             # Continue cascading further upstream
-            self._cascade_latency(system, upstream, cascade_amount)
+            self._cascade_latency(system, upstream, cascade_amount, fault)
+
+    def _check_timeout_alerts(
+        self,
+        system: SimulatedSystem,
+        target: str,
+        fault: Dict[str, Any],
+    ) -> None:
+        """Emit timeout alerts/logs when latency exceeds the threshold.
+
+        Checks the directly targeted service and all upstream services
+        that have cascaded latency.  Alerts are only emitted once per
+        service per fault (tracked via ``fault["timeout_alerted"]``).
+        """
+        alerted: set = fault.setdefault("timeout_alerted", set())
+
+        # Check the directly targeted service
+        svc = system._services[target]
+        if svc["latency"] > LATENCY_TIMEOUT_THRESHOLD and target not in alerted:
+            alert_msg = f"Timeout: {target} latency exceeded threshold"
+            system._active_alerts.append(alert_msg)
+            system._add_log(
+                f"LatentDependency on {target}: latency "
+                f"{svc['latency']:.0f}ms exceeded {LATENCY_TIMEOUT_THRESHOLD:.0f}ms threshold"
+            )
+            alerted.add(target)
+
+        # Check upstream services that have cascaded latency
+        self._check_upstream_timeout(system, target, fault, alerted)
+
+    def _check_upstream_timeout(
+        self,
+        system: SimulatedSystem,
+        source: str,
+        fault: Dict[str, Any],
+        alerted: set,
+    ) -> None:
+        """Recursively check upstream services for timeout and emit alerts."""
+        upstream_services = _REVERSE_DEPS.get(source, [])
+        for upstream in upstream_services:
+            upstream_svc = system._services[upstream]
+            if upstream_svc["is_down"]:
+                continue
+            if (
+                upstream_svc["latency"] > LATENCY_TIMEOUT_THRESHOLD
+                and upstream not in alerted
+            ):
+                alert_msg = (
+                    f"Timeout: {upstream} latency exceeded threshold "
+                    f"(cascade from {fault['target_service']})"
+                )
+                system._active_alerts.append(alert_msg)
+                system._add_log(
+                    f"Timeout cascade: {upstream} latency "
+                    f"{upstream_svc['latency']:.0f}ms exceeded threshold "
+                    f"(dependency on {fault['target_service']})"
+                )
+                alerted.add(upstream)
+            # Continue checking further upstream
+            self._check_upstream_timeout(system, upstream, fault, alerted)
