@@ -599,6 +599,138 @@ class TestRollbackClearsFaults:
 
 
 # ===================================================================
+# 13c. Rollback only clears bad_config, not other stacked faults
+# ===================================================================
+
+class TestRollbackOnlyClearsBadConfig:
+    """Rollback should only remove bad_config faults, not memory_leak or
+    latent_dependency faults stacked on the same service."""
+
+    def test_rollback_clears_bad_config_keeps_memory_leak(self) -> None:
+        """Inject memory_leak + bad_config on same service, rollback ->
+        only bad_config cleared, memory_leak persists."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        # Inject both faults on db
+        env._chaos._inject_specific_fault(env._system, "memory_leak", "db")
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        # Verify both faults are active
+        faults = env._chaos.get_active_faults()
+        fault_types = {f["fault_type"] for f in faults if f["target_service"] == "db"}
+        assert "memory_leak" in fault_types
+        assert "bad_config" in fault_types
+
+        # Apply rollback
+        obs = env.step(_rollback("db"))
+
+        # bad_config should be cleared (service health restored)
+        assert obs.health_status["db"] is True
+
+        # memory_leak should still be active in chaos engine
+        remaining_faults = env._chaos.get_active_faults()
+        remaining_types = {f["fault_type"] for f in remaining_faults if f["target_service"] == "db"}
+        assert "memory_leak" in remaining_types, (
+            f"memory_leak should persist after rollback, got: {remaining_faults}"
+        )
+        assert "bad_config" not in remaining_types, (
+            f"bad_config should be cleared by rollback, got: {remaining_faults}"
+        )
+
+    def test_rollback_clears_bad_config_keeps_latent_dependency(self) -> None:
+        """Inject latent_dependency + bad_config on same service, rollback ->
+        only bad_config cleared, latent_dependency persists."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "latent_dependency", "db")
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        faults = env._chaos.get_active_faults()
+        assert len(faults) == 2
+
+        env.step(_rollback("db"))
+
+        remaining_faults = env._chaos.get_active_faults()
+        remaining_types = {f["fault_type"] for f in remaining_faults if f["target_service"] == "db"}
+        assert "latent_dependency" in remaining_types, (
+            f"latent_dependency should persist after rollback, got: {remaining_faults}"
+        )
+        assert "bad_config" not in remaining_types
+
+    def test_restart_clears_all_faults_on_service(self) -> None:
+        """RestartService should clear ALL faults (memory_leak + bad_config) on the target."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "memory_leak", "db")
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        faults = env._chaos.get_active_faults()
+        assert len(faults) == 2
+
+        obs = env.step(_restart("db"))
+
+        # All faults should be cleared
+        remaining_faults = env._chaos.get_active_faults()
+        db_faults = [f for f in remaining_faults if f["target_service"] == "db"]
+        assert len(db_faults) == 0, (
+            f"RestartService should clear all faults, got: {remaining_faults}"
+        )
+        assert obs.health_status["db"] is True
+
+    def test_rollback_memory_leak_persists_and_progresses(self) -> None:
+        """After rollback clears bad_config, memory_leak continues to progress."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "memory_leak", "db")
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        # Rollback clears bad_config only
+        env.step(_rollback("db"))
+
+        # Memory should still be progressing from the memory_leak
+        mem_after_rollback = env._system._services["db"]["memory"]
+
+        # Take a few more NoOp steps (chaos tick progresses memory_leak)
+        for _ in range(3):
+            env.step(_noop())
+
+        mem_after_noop_steps = env._system._services["db"]["memory"]
+        assert mem_after_noop_steps > mem_after_rollback, (
+            f"memory_leak should continue progressing after rollback, "
+            f"mem after rollback: {mem_after_rollback}, after steps: {mem_after_noop_steps}"
+        )
+
+    def test_rollback_active_incidents_reflects_remaining_fault(self) -> None:
+        """After rollback with stacked faults, active_incidents shows remaining fault."""
+        env = SREEnvironment(fault_probability=0.0)
+        env.reset(seed=42)
+
+        env._chaos._inject_specific_fault(env._system, "memory_leak", "db")
+        env._chaos._inject_specific_fault(env._system, "bad_config", "db")
+
+        # Before rollback, both incidents should appear
+        state = env.state
+        assert len(state.active_incidents) >= 2
+
+        # Rollback
+        env.step(_rollback("db"))
+
+        # After rollback, memory_leak should still appear in incidents
+        state = env.state
+        incident_strs = " ".join(state.active_incidents)
+        assert "memory_leak" in incident_strs, (
+            f"memory_leak incident should persist after rollback, got: {state.active_incidents}"
+        )
+        assert "bad_config" not in incident_strs, (
+            f"bad_config should be cleared from incidents, got: {state.active_incidents}"
+        )
+
+
+# ===================================================================
 # 14. Mismatched remediation does not resolve fault
 # ===================================================================
 
@@ -878,8 +1010,9 @@ class TestLatentDependencyRecoveryViaEnv:
             f"api latency should be near baseline after recovery, got {api_lat}"
         )
 
-    def test_rollback_db_normalises_upstream_latencies(self) -> None:
-        """Rollback on root cause also normalises upstream latencies."""
+    def test_rollback_does_not_clear_latent_dependency(self) -> None:
+        """Rollback does NOT clear latent_dependency faults — only bad_config.
+        Latent dependency requires RestartService to remediate."""
         env = SREEnvironment(fault_probability=0.0)
         env.reset(seed=42)
         baseline = BASELINE_METRICS["latency"]
@@ -893,14 +1026,20 @@ class TestLatentDependencyRecoveryViaEnv:
 
         obs = env.step(_rollback("db"))
 
+        # Rollback should NOT clear latent_dependency, so upstream latencies
+        # remain elevated (latent_dependency continues progressing).
         order_lat = obs.metrics["order"]["latency"]
-        api_lat = obs.metrics["api"]["latency"]
-        assert order_lat < baseline + 20.0, (
-            f"order latency should normalise after rollback, got {order_lat}"
+        assert order_lat > baseline + 10.0, (
+            f"order latency should stay elevated after rollback (latent_dependency not cleared), "
+            f"got {order_lat}"
         )
-        assert api_lat < baseline + 20.0, (
-            f"api latency should normalise after rollback, got {api_lat}"
-        )
+
+        # latent_dependency should still be active in chaos engine
+        remaining = env._chaos.get_active_faults()
+        assert any(
+            f["fault_type"] == "latent_dependency" and f["target_service"] == "db"
+            for f in remaining
+        ), f"latent_dependency should persist after rollback, got: {remaining}"
 
     def test_full_lifecycle_fault_cascade_recovery(self) -> None:
         """Full lifecycle: inject latent_dependency on db, observe cascade,

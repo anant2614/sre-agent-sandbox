@@ -149,16 +149,28 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         # so that active_incidents stays in sync.  Pass `system` so that
         # latent_dependency cascade contributions are undone on upstream
         # services (VAL-CHAOS-007).
+        #
+        # For rollback (type=2), only clear the specific fault type that
+        # was remediated (bad_config), preserving other stacked faults
+        # like memory_leak or latent_dependency on the same service.
+        # For restart (type=1), clear ALL faults since a full restart
+        # resets everything.
         if had_system_fault and not has_system_fault_after:
+            # Rollback only clears bad_config; determine the specific type
+            cleared_fault_type = "bad_config" if action.action_type == 2 else None
             self._chaos.remove_faults_for_service(
-                action.target_service, system=self._system
+                action.target_service,
+                system=self._system,
+                fault_type=cleared_fault_type,
             )
 
-        # For restart/rollback actions, also clear chaos-engine-only faults
-        # (like latent_dependency) that aren't tracked in system._active_faults.
-        # This ensures that restarting a service with a latent_dependency fault
-        # clears the fault and undoes cascaded latency on upstream services.
-        if action.action_type in (1, 2):  # Restart or Rollback
+        # For restart actions, also clear chaos-engine-only faults
+        # (like memory_leak, latent_dependency) that aren't tracked in
+        # system._active_faults.  This ensures that restarting a service
+        # clears all faults and undoes cascaded latency on upstream services.
+        # Rollback (type=2) only targets bad_config, so it should NOT
+        # clear other chaos-engine-only faults.
+        if action.action_type == 1:  # RestartService only
             has_chaos_fault = any(
                 f["target_service"] == action.target_service
                 for f in self._chaos.get_active_faults()

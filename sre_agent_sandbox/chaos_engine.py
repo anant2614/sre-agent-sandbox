@@ -127,12 +127,25 @@ class ChaosEngine:
         self,
         target_service: str,
         system: SimulatedSystem | None = None,
+        fault_type: str | None = None,
     ) -> None:
-        """Remove all active faults targeting *target_service*.
+        """Remove active faults targeting *target_service*.
 
         Used when a remediation action successfully resolves a fault,
         so that the chaos engine's fault tracking stays in sync with
         the simulated system state.
+
+        Parameters
+        ----------
+        target_service:
+            The service whose faults should be removed.
+        system:
+            If provided, ``latent_dependency`` cascade contributions on
+            upstream services are undone so latencies normalise.
+        fault_type:
+            If specified, only faults of this type are removed.
+            If ``None`` (default), **all** faults on the service are
+            removed (backward-compatible behaviour).
 
         For ``latent_dependency`` faults, if *system* is provided, the
         cascaded latency contributions on upstream services are also
@@ -141,7 +154,9 @@ class ChaosEngine:
         """
         remaining: List[Dict[str, Any]] = []
         for f in self._active_faults:
-            if f["target_service"] == target_service:
+            if f["target_service"] == target_service and (
+                fault_type is None or f["fault_type"] == fault_type
+            ):
                 # If this is a latent_dependency fault, undo cascade contributions
                 if f["fault_type"] == "latent_dependency" and system is not None:
                     cascade_contribs: Dict[str, float] = f.get(

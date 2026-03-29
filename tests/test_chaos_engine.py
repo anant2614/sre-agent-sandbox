@@ -476,6 +476,72 @@ class TestRemoveFaultsForService:
         engine.remove_faults_for_service("db")  # db has no faults
         assert len(engine.get_active_faults()) == 1
 
+    def test_fault_type_filter_removes_only_matching_type(self) -> None:
+        """When fault_type is specified, only that fault type is removed."""
+        engine = _make_engine()
+        system = _make_system()
+        engine._inject_specific_fault(system, "memory_leak", "db")
+        engine._inject_specific_fault(system, "bad_config", "db")
+        assert len(engine.get_active_faults()) == 2
+
+        engine.remove_faults_for_service("db", fault_type="bad_config")
+        faults = engine.get_active_faults()
+        assert len(faults) == 1
+        assert faults[0]["fault_type"] == "memory_leak"
+        assert faults[0]["target_service"] == "db"
+
+    def test_fault_type_filter_none_removes_all(self) -> None:
+        """When fault_type is None (default), all faults are removed (backward compat)."""
+        engine = _make_engine()
+        system = _make_system()
+        engine._inject_specific_fault(system, "memory_leak", "db")
+        engine._inject_specific_fault(system, "bad_config", "db")
+        assert len(engine.get_active_faults()) == 2
+
+        engine.remove_faults_for_service("db")
+        assert engine.get_active_faults() == []
+
+    def test_fault_type_filter_no_match_is_noop(self) -> None:
+        """If the specified fault_type doesn't exist for the service, nothing is removed."""
+        engine = _make_engine()
+        system = _make_system()
+        engine._inject_specific_fault(system, "memory_leak", "db")
+        assert len(engine.get_active_faults()) == 1
+
+        engine.remove_faults_for_service("db", fault_type="bad_config")
+        faults = engine.get_active_faults()
+        assert len(faults) == 1
+        assert faults[0]["fault_type"] == "memory_leak"
+
+    def test_fault_type_filter_with_latent_dependency_cascade_undo(self) -> None:
+        """When removing latent_dependency by fault_type, cascade is undone
+        but other faults on the same service are preserved."""
+        import pytest
+
+        engine = _make_engine()
+        system = _make_system()
+        baseline_latency = BASELINE_METRICS["latency"]
+
+        engine._inject_specific_fault(system, "latent_dependency", "db")
+        engine._inject_specific_fault(system, "memory_leak", "db")
+
+        for _ in range(10):
+            engine.tick(system)
+
+        # Upstream should have cascaded latency
+        assert system._services["order"]["latency"] > baseline_latency
+
+        # Remove only latent_dependency, keep memory_leak
+        engine.remove_faults_for_service("db", system=system, fault_type="latent_dependency")
+
+        faults = engine.get_active_faults()
+        assert len(faults) == 1
+        assert faults[0]["fault_type"] == "memory_leak"
+
+        # Upstream cascade should be undone
+        order_lat = system._services["order"]["latency"]
+        assert order_lat == pytest.approx(baseline_latency, abs=0.01)
+
 
 # ===========================================================================
 # Test: Probability 0 produces no faults
