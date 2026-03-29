@@ -161,9 +161,25 @@ class TestStepEndpoint:
         ).json()
         assert "observation" in data
         assert "reward" in data
+        assert "done" in data
         assert "terminated" in data
         assert "truncated" in data
         assert "info" in data
+
+    def test_step_done_field_matches_terminated_or_truncated(self, client: TestClient) -> None:
+        """done = terminated or truncated."""
+        client.post("/reset")
+        data = client.post(
+            "/step", json={"action": {"action_type": 0, "target_service": "api"}}
+        ).json()
+        assert data["done"] == (data["terminated"] or data["truncated"])
+
+    def test_step_done_is_bool(self, client: TestClient) -> None:
+        client.post("/reset")
+        data = client.post(
+            "/step", json={"action": {"action_type": 0, "target_service": "api"}}
+        ).json()
+        assert isinstance(data["done"], bool)
 
     def test_step_observation_has_correct_structure(self, client: TestClient) -> None:
         client.post("/reset")
@@ -308,7 +324,22 @@ class TestWebSocketLifecycle:
             assert resp["type"] == "step_result"
             assert "observation" in resp["data"]
             assert "reward" in resp["data"]
+            assert "done" in resp["data"]
             assert "terminated" in resp["data"]
+
+    def test_ws_step_done_matches_terminated_or_truncated(self, client: TestClient) -> None:
+        """WebSocket step_result done = terminated or truncated."""
+        with client.websocket_connect("/ws") as ws:
+            ws.send_json({"type": "reset"})
+            ws.receive_json()
+
+            ws.send_json({
+                "type": "step",
+                "data": {"action": {"action_type": 0, "target_service": "api"}},
+            })
+            resp = ws.receive_json()
+            data = resp["data"]
+            assert data["done"] == (data["terminated"] or data["truncated"])
 
     def test_ws_state(self, client: TestClient) -> None:
         with client.websocket_connect("/ws") as ws:

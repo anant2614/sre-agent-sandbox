@@ -139,6 +139,8 @@ def step(
     obs = env.step(action)
     obs_dict = obs.model_dump()
 
+    terminated = obs_dict["done"]
+    truncated = False
     result = {
         "observation": {
             "metrics": obs_dict["metrics"],
@@ -147,8 +149,9 @@ def step(
             "active_alerts": obs_dict["active_alerts"],
         },
         "reward": obs_dict["reward"] if obs_dict["reward"] is not None else 0.0,
-        "terminated": obs_dict["done"],
-        "truncated": False,
+        "done": terminated or truncated,
+        "terminated": terminated,
+        "truncated": truncated,
         "info": {},
     }
     return _json_response(result, sid)
@@ -234,6 +237,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
                 obs = env.step(action)
                 obs_dict = obs.model_dump()
+                ws_terminated = obs_dict["done"]
+                ws_truncated = False
                 await websocket.send_json({
                     "type": "step_result",
                     "data": {
@@ -244,8 +249,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                             "active_alerts": obs_dict["active_alerts"],
                         },
                         "reward": obs_dict["reward"] if obs_dict["reward"] is not None else 0.0,
-                        "terminated": obs_dict["done"],
-                        "truncated": False,
+                        "done": ws_terminated or ws_truncated,
+                        "terminated": ws_terminated,
+                        "truncated": ws_truncated,
                         "info": {},
                     },
                 })
