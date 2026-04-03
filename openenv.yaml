@@ -5,3 +5,70 @@ description: >
   under stress. An AI agent acts as an SRE, diagnosing and remediating
   infrastructure failures.
 entry_point: sre_agent_sandbox.server.environment:SREEnvironment
+
+action_space:
+  type: object
+  properties:
+    action_type:
+      type: integer
+      enum: [0, 1, 2, 3, 4]
+      description: "0=NoOp, 1=RestartService, 2=Rollback, 3=ScaleUp, 4=ClearCache"
+    target_service:
+      type: string
+      enum: ["api", "order", "db"]
+      description: "Target service for the action"
+
+observation_space:
+  type: object
+  properties:
+    metrics:
+      description: "Per-service metrics: {service: {cpu, memory, latency, request_count}}"
+    log_buffer:
+      description: "Rolling log buffer (max 10 entries)"
+    health_status:
+      description: "Per-service health: {api: bool, order: bool, db: bool}"
+    active_alerts:
+      description: "Currently active alert messages"
+    done:
+      type: boolean
+    reward:
+      type: number
+
+tasks:
+  - task_id: sre_single_fault
+    name: Single Fault Remediation
+    difficulty: easy
+    description: >
+      Only bad_config faults are injected at a low rate.  The agent must
+      learn to detect bad_config alerts and rollback the affected service.
+    max_steps: 100
+    fault_probability: 0.1
+    eval_episodes: 5
+    eval_seeds: [100, 101, 102, 103, 104]
+    grader: sre_agent_sandbox.tasks:grade
+
+  - task_id: sre_mixed_faults
+    name: Mixed Fault Diagnosis
+    difficulty: medium
+    description: >
+      All three fault types (memory_leak, latent_dependency, bad_config)
+      are injected at a moderate rate.  The agent must diagnose the fault
+      type from observations and choose the correct remediation.
+    max_steps: 200
+    fault_probability: 0.3
+    eval_episodes: 5
+    eval_seeds: [200, 201, 202, 203, 204]
+    grader: sre_agent_sandbox.tasks:grade
+
+  - task_id: sre_high_chaos
+    name: High Chaos Survival
+    difficulty: hard
+    description: >
+      All fault types at aggressive injection rate with tighter latency
+      timeout thresholds.  Multiple concurrent faults and cascading
+      failures require rapid, precise triage.
+    max_steps: 300
+    fault_probability: 0.5
+    eval_episodes: 5
+    eval_seeds: [300, 301, 302, 303, 304]
+    grader: sre_agent_sandbox.tasks:grade

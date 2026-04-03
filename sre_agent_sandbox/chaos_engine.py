@@ -53,12 +53,25 @@ class ChaosEngine:
         Random seed for deterministic fault sequences.
     """
 
-    def __init__(self, fault_probability: float = 0.5, seed: int = 42) -> None:
+    def __init__(
+        self,
+        fault_probability: float = 0.5,
+        seed: int = 42,
+        latency_timeout_threshold: float | None = None,
+    ) -> None:
         self._fault_probability = fault_probability
         self._rng = random.Random(seed)
         # Active faults: list of dicts with fault_type, target_service, and
         # any fault-specific state (e.g. accumulated memory for memory_leak).
         self._active_faults: List[Dict[str, Any]] = []
+        # When set, only these fault types will be injected (task filtering).
+        self._allowed_fault_types: List[str] | None = None
+        # Per-instance timeout threshold (falls back to module-level default).
+        self._latency_timeout_threshold = (
+            latency_timeout_threshold
+            if latency_timeout_threshold is not None
+            else LATENCY_TIMEOUT_THRESHOLD
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -74,8 +87,9 @@ class ChaosEngine:
         if self._rng.random() >= self._fault_probability:
             return
 
-        # Pick a random fault type
-        fault_type = self._rng.choice(FAULT_TYPES)
+        # Pick a random fault type (respecting task-level filter)
+        pool = self._allowed_fault_types if self._allowed_fault_types else FAULT_TYPES
+        fault_type = self._rng.choice(pool)
 
         # Pick a target service that doesn't already have this fault type
         available = [
@@ -325,12 +339,12 @@ class ChaosEngine:
 
         # Check the directly targeted service
         svc = system._services[target]
-        if svc["latency"] > LATENCY_TIMEOUT_THRESHOLD and target not in alerted:
+        if svc["latency"] > self._latency_timeout_threshold and target not in alerted:
             alert_msg = f"Timeout: {target} latency exceeded threshold"
             system._active_alerts.append(alert_msg)
             system._add_log(
                 f"LatentDependency on {target}: latency "
-                f"{svc['latency']:.0f}ms exceeded {LATENCY_TIMEOUT_THRESHOLD:.0f}ms threshold"
+                f"{svc['latency']:.0f}ms exceeded {self._latency_timeout_threshold:.0f}ms threshold"
             )
             alerted.add(target)
 
@@ -351,7 +365,7 @@ class ChaosEngine:
             if upstream_svc["is_down"]:
                 continue
             if (
-                upstream_svc["latency"] > LATENCY_TIMEOUT_THRESHOLD
+                upstream_svc["latency"] > self._latency_timeout_threshold
                 and upstream not in alerted
             ):
                 alert_msg = (

@@ -12,6 +12,10 @@ dependencies = [
 
 [project.scripts]
 sre-agent-demo = "sre_agent_sandbox.demo.run_demo:main"
+server = "server.app:main"
+
+[project.optional-dependencies]
+llm = ["openai>=1.0"]
 
 [build-system]
 requires = ["hatchling"]

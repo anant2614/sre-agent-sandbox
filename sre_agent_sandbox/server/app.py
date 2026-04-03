@@ -89,15 +89,18 @@ def _json_response(data: Any, session_id: str) -> JSONResponse:
 @app.get("/health")
 def health() -> Dict[str, str]:
     """GET /health — liveness probe."""
-    return {"status": "ok"}
+    return {"status": "healthy"}
 
 
 @app.get("/schema")
 def schema() -> Dict[str, Any]:
-    """GET /schema — JSON schemas for SREAction and SREObservation."""
+    """GET /schema — JSON schemas for action, observation, and state."""
+    from sre_agent_sandbox.models import SREState
+
     return {
-        "action_space": SREAction.model_json_schema(),
-        "observation_space": SREObservation.model_json_schema(),
+        "action": SREAction.model_json_schema(),
+        "observation": SREObservation.model_json_schema(),
+        "state": SREState.model_json_schema(),
     }
 
 
