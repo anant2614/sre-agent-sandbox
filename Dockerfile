@@ -14,7 +14,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy source code (flat package layout at repo root)
-COPY models.py client.py simulated_system.py chaos_engine.py reward.py renderer.py tasks.py baseline_eval.py baseline_inference.py __init__.py ./
+COPY models.py client.py simulated_system.py chaos_engine.py reward.py renderer.py tasks.py __init__.py ./
 COPY server/ server/
 COPY demo/ demo/
 COPY openenv.yaml ./
@@ -45,7 +45,7 @@ WORKDIR /app
 
 # Copy the virtual environment and source from builder
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/models.py /app/client.py /app/simulated_system.py /app/chaos_engine.py /app/reward.py /app/renderer.py /app/tasks.py /app/baseline_eval.py /app/baseline_inference.py /app/__init__.py /app/
+COPY --from=builder /app/models.py /app/client.py /app/simulated_system.py /app/chaos_engine.py /app/reward.py /app/renderer.py /app/tasks.py /app/__init__.py /app/
 COPY --from=builder /app/server /app/server
 COPY --from=builder /app/demo /app/demo
 COPY --from=builder /app/openenv.yaml /app/openenv.yaml
