@@ -294,33 +294,37 @@ print(f"Score: {result['mean_score']:.3f}")  # 0.0-1.0
 
 ```
 sre-agent-sandbox/
-├── openenv.yaml                 # OpenEnv manifest with task definitions
-├── pyproject.toml               # Project metadata and dependencies
+├── openenv.yaml                 # OpenEnv environment specification
+├── pyproject.toml               # Python package definition & CLI entry points
 ├── Dockerfile                   # Multi-stage Docker build
+├── README.md                    # This file
+├── __init__.py                  # Root package marker
+├── models.py                    # SREAction, SREObservation, SREState (Pydantic)
+├── client.py                    # OpenEnv async client (SREEnv)
+├── simulated_system.py          # 3-tier microservices system state model
+├── chaos_engine.py              # Probabilistic fault injection engine
+├── reward.py                    # 5-component reward calculator
+├── renderer.py                  # ASCII terminal dashboard renderer
+├── tasks.py                     # Task definitions & task-aware grader
+├── inference.py                 # LLM-based agent evaluation script
 ├── server/
-│   └── app.py                   # Top-level server entry (openenv validate)
-├── sre_agent_sandbox/
-│   ├── models.py                # SREAction, SREObservation, SREState (Pydantic)
-│   ├── simulated_system.py      # 3-tier system state model
-│   ├── chaos_engine.py          # Probabilistic fault injection
-│   ├── reward.py                # 5-component reward calculator
-│   ├── tasks.py                 # Task definitions (easy/medium/hard) and graders
-│   ├── renderer.py              # ASCII terminal dashboard
-│   ├── server/
-│   │   ├── environment.py       # SREEnvironment (OpenEnv Environment subclass)
-│   │   └── app.py               # FastAPI REST + WebSocket server
-│   └── demo/
-│       └── run_demo.py          # Random and heuristic demo agents
+│   ├── __init__.py
+│   ├── app.py                   # FastAPI server (REST + WebSocket)
+│   └── environment.py           # SREEnvironment (OpenEnv Environment subclass)
+├── demo/
+│   ├── __init__.py
+│   └── run_demo.py              # RandomAgent & HeuristicAgent with ASCII demo
 └── tests/
-    ├── test_models.py
-    ├── test_simulated_system.py
-    ├── test_chaos_engine.py
-    ├── test_reward.py
-    ├── test_environment.py
-    ├── test_server.py
-    ├── test_renderer.py
-    ├── test_demo.py
-    └── test_tasks.py
+    ├── __init__.py
+    ├── test_models.py           # Pydantic model validation
+    ├── test_simulated_system.py # System state transitions
+    ├── test_chaos_engine.py     # Fault injection logic
+    ├── test_reward.py           # Reward calculator components
+    ├── test_environment.py      # SREEnvironment reset/step/done
+    ├── test_server.py           # FastAPI endpoints
+    ├── test_renderer.py         # ASCII diagram rendering
+    ├── test_demo.py             # RandomAgent & HeuristicAgent
+    └── test_tasks.py            # Task evaluation & grading
 ```
 
 ## License
