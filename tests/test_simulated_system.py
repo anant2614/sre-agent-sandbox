@@ -8,7 +8,7 @@ dependency chains, and log buffer FIFO cap.
 
 from __future__ import annotations
 
-from sre_agent_sandbox.simulated_system import SimulatedSystem
+from simulated_system import SimulatedSystem
 
 # ---------------------------------------------------------------------------
 # Constants for baseline expectations

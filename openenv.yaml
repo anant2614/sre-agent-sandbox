@@ -4,7 +4,7 @@ description: >
   OpenEnv RL environment simulating a distributed 3-tier microservices system
   under stress. An AI agent acts as an SRE, diagnosing and remediating
   infrastructure failures.
-entry_point: sre_agent_sandbox.server.environment:SREEnvironment
+entry_point: server.environment:SREEnvironment
 
 action_space:
   type: object
@@ -45,7 +45,7 @@ tasks:
     fault_probability: 0.1
     eval_episodes: 5
     eval_seeds: [100, 101, 102, 103, 104]
-    grader: sre_agent_sandbox.tasks:grade
+    grader: tasks:grade
 
   - task_id: sre_mixed_faults
     name: Mixed Fault Diagnosis
@@ -58,7 +58,7 @@ tasks:
     fault_probability: 0.3
     eval_episodes: 5
     eval_seeds: [200, 201, 202, 203, 204]
-    grader: sre_agent_sandbox.tasks:grade
+    grader: tasks:grade
 
   - task_id: sre_high_chaos
     name: High Chaos Survival
@@ -71,4 +71,4 @@ tasks:
     fault_probability: 0.5
     eval_episodes: 5
     eval_seeds: [300, 301, 302, 303, 304]
-    grader: sre_agent_sandbox.tasks:grade
+    grader: tasks:grade

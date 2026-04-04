@@ -17,7 +17,7 @@ from __future__ import annotations
 import random
 from typing import Any, Dict, List
 
-from sre_agent_sandbox.simulated_system import DEPENDENCIES, SERVICE_NAMES, SimulatedSystem
+from simulated_system import DEPENDENCIES, SERVICE_NAMES, SimulatedSystem
 
 # ---------------------------------------------------------------------------
 # Fault type constants

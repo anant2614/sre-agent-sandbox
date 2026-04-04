@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from sre_agent_sandbox.models import SREAction
-from sre_agent_sandbox.reward import RewardCalculator
-from sre_agent_sandbox.simulated_system import SimulatedSystem
+from models import SREAction
+from reward import RewardCalculator
+from simulated_system import SimulatedSystem
 
 # ---------------------------------------------------------------------------
 # Helpers

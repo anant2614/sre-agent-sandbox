@@ -14,10 +14,10 @@ import string
 
 import pytest
 
-from sre_agent_sandbox.models import SREAction
-from sre_agent_sandbox.renderer import render
-from sre_agent_sandbox.server.environment import SREEnvironment
-from sre_agent_sandbox.simulated_system import SERVICE_NAMES
+from models import SREAction
+from renderer import render
+from server.environment import SREEnvironment
+from simulated_system import SERVICE_NAMES
 
 # ---------------------------------------------------------------------------
 # Helpers

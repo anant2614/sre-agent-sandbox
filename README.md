@@ -1,3 +1,12 @@
+---
+title: SRE Agent Sandbox
+emoji: 🔧
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8000
+---
+
 # SRE-Agent-Sandbox
 
 > OpenEnv-compliant RL environment simulating a distributed 3-tier microservices system under stress. An AI agent acts as an SRE, diagnosing and remediating infrastructure failures in real time.

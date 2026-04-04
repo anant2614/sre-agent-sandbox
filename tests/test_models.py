@@ -19,7 +19,7 @@ import itertools
 import pytest
 from pydantic import ValidationError
 
-from sre_agent_sandbox.models import SREAction, SREObservation, SREState
+from models import SREAction, SREObservation, SREState
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -17,14 +17,14 @@ from __future__ import annotations
 
 import pytest
 
-from sre_agent_sandbox.demo.run_demo import (
+from demo.run_demo import (
     HeuristicAgent,
     RandomAgent,
     main,
     run_episode,
 )
-from sre_agent_sandbox.models import SREAction, SREObservation, SREState
-from sre_agent_sandbox.server.environment import SREEnvironment
+from models import SREAction, SREObservation, SREState
+from server.environment import SREEnvironment
 
 # ---------------------------------------------------------------------------
 # Agent Tests

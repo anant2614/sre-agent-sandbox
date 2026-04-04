@@ -16,10 +16,10 @@ from typing import Optional
 
 from openenv.core.env_server.interfaces import Environment
 
-from sre_agent_sandbox.chaos_engine import ChaosEngine
-from sre_agent_sandbox.models import SREAction, SREObservation, SREState
-from sre_agent_sandbox.reward import RewardCalculator
-from sre_agent_sandbox.simulated_system import SERVICE_NAMES, SimulatedSystem
+from chaos_engine import ChaosEngine
+from models import SREAction, SREObservation, SREState
+from reward import RewardCalculator
+from simulated_system import SERVICE_NAMES, SimulatedSystem
 
 # Default maximum steps per episode
 DEFAULT_MAX_STEPS: int = 200

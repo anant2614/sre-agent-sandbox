@@ -1,11 +1,27 @@
-"""Top-level server entry point for OpenEnv multi-mode deployment.
+"""FastAPI application for the SRE Agent Sandbox.
 
-Re-exports the FastAPI ``app`` from the main package and provides a
-``main()`` function so that ``uv run server`` and ``python -m server.app``
-both work.
+Uses OpenEnv's ``create_app`` to generate the standard HTTP server with all
+required endpoints: ``/health``, ``/schema``, ``/metadata``, ``/reset``,
+``/step``, ``/state``, ``/ws``, and ``/mcp``.
+
+Usage::
+
+    uv run server
+    uvicorn server.app:app --host 0.0.0.0 --port 8000
 """
 
-from sre_agent_sandbox.server.app import app  # noqa: F401
+from openenv.core.env_server.http_server import create_app
+
+from models import SREAction, SREObservation
+from server.environment import SREEnvironment
+
+app = create_app(
+    SREEnvironment,
+    SREAction,
+    SREObservation,
+    env_name="sre_agent_sandbox",
+    max_concurrent_envs=10,
+)
 
 
 def main(host: str = "0.0.0.0", port: int = 8000) -> None:
@@ -15,9 +31,4 @@ def main(host: str = "0.0.0.0", port: int = 8000) -> None:
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    main(port=args.port)
+    main()

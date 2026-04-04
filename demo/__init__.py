@@ -1,1 +1,1 @@
-"""Top-level demo package — forwards to sre_agent_sandbox.demo."""
+"""Demo scripts for the SRE Agent Sandbox."""

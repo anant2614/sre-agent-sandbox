@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from sre_agent_sandbox.server.environment import SREEnvironment
+from server.environment import SREEnvironment
 
 
 @dataclass(frozen=True)
@@ -213,7 +213,7 @@ def evaluate_agent(
         _configure_env_for_task(env, task)
 
         if render:
-            from sre_agent_sandbox.renderer import render as render_fn
+            from renderer import render as render_fn
             print(render_fn(env))
 
         done = False
@@ -223,7 +223,7 @@ def evaluate_agent(
             done = obs.done
 
             if render:
-                from sre_agent_sandbox.renderer import render as render_fn
+                from renderer import render as render_fn
                 print(render_fn(env))
 
         cum_reward = env._cumulative_reward

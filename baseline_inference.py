@@ -10,7 +10,7 @@ Reads credentials from environment variables:
 Usage::
 
     export OPENAI_API_KEY="sk-..."
-    uv run python -m sre_agent_sandbox.baseline_inference
+    uv run python -m baseline_inference
 """
 
 from __future__ import annotations
@@ -20,8 +20,8 @@ import os
 import sys
 from typing import Any, Dict, List
 
-from sre_agent_sandbox.models import SREAction, SREObservation, SREState
-from sre_agent_sandbox.tasks import (
+from models import SREAction, SREObservation, SREState
+from tasks import (
     TASKS,
     _configure_env_for_task,
     grade,

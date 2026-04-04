@@ -7,8 +7,8 @@ clear_all, probability 0 produces no faults, and validation contract assertions.
 
 from __future__ import annotations
 
-from sre_agent_sandbox.chaos_engine import ChaosEngine
-from sre_agent_sandbox.simulated_system import BASELINE_METRICS, SERVICE_NAMES, SimulatedSystem
+from chaos_engine import ChaosEngine
+from simulated_system import BASELINE_METRICS, SERVICE_NAMES, SimulatedSystem
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -755,7 +755,7 @@ class TestLatentDependencyTimeout:
 
     def test_timeout_alert_when_target_exceeds_threshold(self) -> None:
         """Target service gets timeout alert when latency > 500ms."""
-        from sre_agent_sandbox.chaos_engine import LATENCY_TIMEOUT_THRESHOLD
+        from chaos_engine import LATENCY_TIMEOUT_THRESHOLD
 
         engine = _make_engine()
         system = _make_system()
@@ -797,7 +797,7 @@ class TestLatentDependencyTimeout:
     def test_upstream_timeout_alerts_on_cascade(self) -> None:
         """When db latency causes upstream (order, api) to exceed threshold,
         upstream timeout alerts are emitted."""
-        from sre_agent_sandbox.chaos_engine import LATENCY_TIMEOUT_THRESHOLD
+        from chaos_engine import LATENCY_TIMEOUT_THRESHOLD
 
         engine = _make_engine()
         system = _make_system()
@@ -858,7 +858,7 @@ class TestLatentDependencyTimeout:
 
     def test_progressive_latency_then_timeout(self) -> None:
         """Latency increases progressively; timeout alerts appear only after threshold."""
-        from sre_agent_sandbox.chaos_engine import LATENCY_TIMEOUT_THRESHOLD
+        from chaos_engine import LATENCY_TIMEOUT_THRESHOLD
 
         engine = _make_engine()
         system = _make_system()

@@ -5,13 +5,13 @@ and reports reproducible graded scores (0.0-1.0).
 
 Usage::
 
-    uv run python -m sre_agent_sandbox.baseline_eval
+    uv run python -m baseline_eval
 """
 
 from __future__ import annotations
 
-from sre_agent_sandbox.demo.run_demo import HeuristicAgent, RandomAgent
-from sre_agent_sandbox.tasks import TASKS, evaluate_agent
+from demo.run_demo import HeuristicAgent, RandomAgent
+from tasks import TASKS, evaluate_agent
 
 
 def main() -> None:

@@ -27,9 +27,9 @@ import time
 
 import pytest
 
-from sre_agent_sandbox.models import SREAction, SREObservation, SREState
-from sre_agent_sandbox.server.environment import SREEnvironment
-from sre_agent_sandbox.simulated_system import BASELINE_METRICS, SERVICE_NAMES
+from models import SREAction, SREObservation, SREState
+from server.environment import SREEnvironment
+from simulated_system import BASELINE_METRICS, SERVICE_NAMES
 
 # ---------------------------------------------------------------------------
 # Helpers

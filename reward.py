@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
-from sre_agent_sandbox.models import SREAction
-from sre_agent_sandbox.simulated_system import SERVICE_NAMES, SimulatedSystem
+from models import SREAction
+from simulated_system import SERVICE_NAMES, SimulatedSystem
 
 
 class RewardCalculator:

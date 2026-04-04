@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sre_agent_sandbox.simulated_system import SERVICE_NAMES
+from simulated_system import SERVICE_NAMES
 
 if TYPE_CHECKING:
-    from sre_agent_sandbox.server.environment import SREEnvironment
+    from server.environment import SREEnvironment
 
 
 def render(env: SREEnvironment) -> str:
