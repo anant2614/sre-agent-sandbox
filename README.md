@@ -49,9 +49,6 @@ The result is an environment where an agent must learn to diagnose fault types f
 git clone <repo-url> && cd sre-agent-sandbox
 uv sync
 
-# Run baseline evaluation (all 3 tasks, graded 0.0-1.0)
-uv run python -m sre_agent_sandbox.baseline_eval
-
 # Run the interactive demo (random agent vs heuristic agent with ASCII dashboard)
 uv run python -m sre_agent_sandbox.demo.run_demo
 
@@ -224,53 +221,6 @@ The environment defines **3 tasks** with increasing difficulty. Each task uses f
 
 ---
 
-## Baseline Scores
-
-### Programmatic Baselines
-
-Scores from `uv run python -m sre_agent_sandbox.baseline_eval` (deterministic, reproducible):
-
-| Task                  | Difficulty | Random Agent | Heuristic Agent |
-|-----------------------|------------|:------------:|:---------------:|
-| Single Fault          | Easy       | 0.37         | **0.97**        |
-| Mixed Fault Diagnosis | Medium     | 0.20         | **0.70**        |
-| High Chaos Survival   | Hard       | 0.57         | **0.46**        |
-
-**Interpreting the scores:**
-- **Easy:** The heuristic nearly solves it (0.97) because a single if/else rule suffices. A trained agent should reach 0.95+.
-- **Medium:** The heuristic gets 0.70 by applying correct remediations per fault type. Room for a trained agent to exceed this with better timing and prioritization.
-- **Hard:** Even the heuristic breaks down (0.46) under 50% fault rate with tighter thresholds. The random agent's higher score (0.57) reflects lucky early terminations from meltdown on bad seeds. This task requires sophisticated prioritization that simple rules cannot achieve.
-
-### LLM Baseline Inference
-
-The LLM baseline uses the OpenAI API to run a language model as the agent:
-
-```bash
-# Install the optional LLM dependency
-uv pip install openai
-
-# Set your API key
-export OPENAI_API_KEY="sk-..."
-
-# Run inference (defaults to gpt-4o-mini)
-uv run python -m sre_agent_sandbox.baseline_inference
-
-# Use a different model
-OPENAI_MODEL="gpt-4o" uv run python -m sre_agent_sandbox.baseline_inference
-```
-
-The script reads `OPENAI_API_KEY` from environment variables, runs the model against all 3 tasks using the same deterministic evaluation seeds, and produces graded 0.0-1.0 scores.
-
-**Grading formula:**
-
-```
-score = clamp((cumulative_reward - worst) / (best - worst), 0.0, 1.0)
-```
-
-Where `worst` and `best` are calibrated per-task reward bounds (see `tasks.py`).
-
----
-
 ## API Reference
 
 ### REST Endpoints
@@ -355,8 +305,6 @@ sre-agent-sandbox/
 │   ├── chaos_engine.py          # Probabilistic fault injection
 │   ├── reward.py                # 5-component reward calculator
 │   ├── tasks.py                 # Task definitions (easy/medium/hard) and graders
-│   ├── baseline_eval.py         # Programmatic baseline evaluation
-│   ├── baseline_inference.py    # LLM baseline using OpenAI API
 │   ├── renderer.py              # ASCII terminal dashboard
 │   ├── server/
 │   │   ├── environment.py       # SREEnvironment (OpenEnv Environment subclass)
