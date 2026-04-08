@@ -176,7 +176,7 @@ def grade(task: TaskConfig, cumulative_reward: float) -> float:
     reward bounds, clamped to (EPS, 1-EPS) so scores are never exactly
     0.0 or 1.0.
     """
-    EPS = 1e-4
+    EPS = 0.001
     worst, best = task.reward_range
     if best == worst:
         raw = 1.0 if cumulative_reward >= best else 0.0

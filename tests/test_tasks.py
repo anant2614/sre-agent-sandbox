@@ -50,12 +50,12 @@ class TestGrader:
     def test_perfect_score(self) -> None:
         _, best = TASK_EASY.reward_range
         score = grade(TASK_EASY, best)
-        assert 0.0 < score < 1.0 and score > 0.999
+        assert 0.0 < score < 1.0 and score >= 0.999
 
     def test_worst_score(self) -> None:
         worst, _ = TASK_EASY.reward_range
         score = grade(TASK_EASY, worst)
-        assert 0.0 < score < 1.0 and score < 0.001
+        assert 0.0 < score < 1.0 and score <= 0.001
 
     def test_midpoint(self) -> None:
         worst, best = TASK_EASY.reward_range
@@ -65,12 +65,12 @@ class TestGrader:
     def test_clamp_above(self) -> None:
         _, best = TASK_MEDIUM.reward_range
         score = grade(TASK_MEDIUM, best + 1000)
-        assert 0.0 < score < 1.0 and score > 0.999
+        assert 0.0 < score < 1.0 and score >= 0.999
 
     def test_clamp_below(self) -> None:
         worst, _ = TASK_MEDIUM.reward_range
         score = grade(TASK_MEDIUM, worst - 1000)
-        assert 0.0 < score < 1.0 and score < 0.001
+        assert 0.0 < score < 1.0 and score <= 0.001
 
     def test_score_in_range(self) -> None:
         for task in TASKS.values():

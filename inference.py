@@ -113,7 +113,7 @@ SELECTED_TASK = os.getenv("SRE_TASK")  # e.g. "sre_mixed_faults" or None for all
 
 def grade(cumulative_reward: float, reward_range: tuple) -> float:
     """Normalise cumulative_reward to a score strictly within (0, 1)."""
-    EPS = 1e-4
+    EPS = 0.001
     worst, best = reward_range
     if best == worst:
         raw = 1.0 if cumulative_reward >= best else 0.0
@@ -369,7 +369,7 @@ async def run_episode(
     history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
-    score = 1e-4
+    score = 0.001
     success = False
 
     log_start(task=task_id, env=BENCHMARK, model=model_name)
