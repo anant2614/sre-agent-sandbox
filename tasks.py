@@ -170,16 +170,19 @@ def _configure_env_for_task(env: SREEnvironment, task: TaskConfig) -> None:
 # ---------------------------------------------------------------------------
 
 def grade(task: TaskConfig, cumulative_reward: float) -> float:
-    """Normalise *cumulative_reward* to a 0.0-1.0 score for *task*.
+    """Normalise *cumulative_reward* to a score strictly within (0, 1).
 
     Uses linear interpolation between the task's worst-case and best-case
-    reward bounds, clamped to [0.0, 1.0].
+    reward bounds, clamped to (EPS, 1-EPS) so scores are never exactly
+    0.0 or 1.0.
     """
+    EPS = 1e-4
     worst, best = task.reward_range
     if best == worst:
-        return 1.0 if cumulative_reward >= best else 0.0
-    raw = (cumulative_reward - worst) / (best - worst)
-    return max(0.0, min(1.0, raw))
+        raw = 1.0 if cumulative_reward >= best else 0.0
+    else:
+        raw = (cumulative_reward - worst) / (best - worst)
+    return max(EPS, min(1.0 - EPS, raw))
 
 
 def evaluate_agent(

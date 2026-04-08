@@ -49,11 +49,13 @@ class TestTaskCatalogue:
 class TestGrader:
     def test_perfect_score(self) -> None:
         _, best = TASK_EASY.reward_range
-        assert grade(TASK_EASY, best) == 1.0
+        score = grade(TASK_EASY, best)
+        assert 0.0 < score < 1.0 and score > 0.999
 
     def test_worst_score(self) -> None:
         worst, _ = TASK_EASY.reward_range
-        assert grade(TASK_EASY, worst) == 0.0
+        score = grade(TASK_EASY, worst)
+        assert 0.0 < score < 1.0 and score < 0.001
 
     def test_midpoint(self) -> None:
         worst, best = TASK_EASY.reward_range
@@ -62,18 +64,20 @@ class TestGrader:
 
     def test_clamp_above(self) -> None:
         _, best = TASK_MEDIUM.reward_range
-        assert grade(TASK_MEDIUM, best + 1000) == 1.0
+        score = grade(TASK_MEDIUM, best + 1000)
+        assert 0.0 < score < 1.0 and score > 0.999
 
     def test_clamp_below(self) -> None:
         worst, _ = TASK_MEDIUM.reward_range
-        assert grade(TASK_MEDIUM, worst - 1000) == 0.0
+        score = grade(TASK_MEDIUM, worst - 1000)
+        assert 0.0 < score < 1.0 and score < 0.001
 
     def test_score_in_range(self) -> None:
         for task in TASKS.values():
             worst, best = task.reward_range
             mid = (worst + best) / 2
             score = grade(task, mid)
-            assert 0.0 <= score <= 1.0
+            assert 0.0 < score < 1.0
 
 
 class TestMakeEnv:
